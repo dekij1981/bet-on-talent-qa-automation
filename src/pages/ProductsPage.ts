@@ -43,11 +43,11 @@ export class ProductsPage {
   }
 
   async expectProductInResults(productName: string): Promise<void> {
-    await expect(
-      this.page.getByText(productName, {
-        exact: true,
-      }),
-    ).toBeVisible();
+    const productCard = this.page.locator('.product-image-wrapper').filter({
+      hasText: productName,
+    });
+
+    await expect(productCard).toBeVisible();
   }
 
   async openProduct(productName: string): Promise<void> {
