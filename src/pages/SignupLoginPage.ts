@@ -7,6 +7,7 @@ export class SignupLoginPage {
   readonly nameInput: Locator;
   readonly emailInput: Locator;
   readonly signupButton: Locator;
+  readonly existingEmailError: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -24,12 +25,20 @@ export class SignupLoginPage {
 
     this.nameInput = this.signupForm.getByPlaceholder('Name');
 
-    this.emailInput = this.signupForm.getByPlaceholder('Email Address');
+    this.emailInput =
+      this.signupForm.getByPlaceholder('Email Address');
 
     this.signupButton = this.signupForm.getByRole('button', {
       name: 'Signup',
       exact: true,
     });
+
+    this.existingEmailError = this.signupForm.getByText(
+      'Email Address already exist!',
+      {
+        exact: true,
+      },
+    );
   }
 
   async open(): Promise<void> {
@@ -44,5 +53,9 @@ export class SignupLoginPage {
     await this.nameInput.fill(name);
     await this.emailInput.fill(email);
     await this.signupButton.click();
+  }
+
+  async expectExistingEmailError(): Promise<void> {
+    await expect(this.existingEmailError).toBeVisible();
   }
 }
