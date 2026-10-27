@@ -25,20 +25,16 @@ export class SignupLoginPage {
 
     this.nameInput = this.signupForm.getByPlaceholder('Name');
 
-    this.emailInput =
-      this.signupForm.getByPlaceholder('Email Address');
+    this.emailInput = this.signupForm.getByPlaceholder('Email Address');
 
     this.signupButton = this.signupForm.getByRole('button', {
       name: 'Signup',
       exact: true,
     });
 
-    this.existingEmailError = this.signupForm.getByText(
-      'Email Address already exist!',
-      {
-        exact: true,
-      },
-    );
+    this.existingEmailError = this.signupForm.getByText('Email Address already exist!', {
+      exact: true,
+    });
   }
 
   async open(): Promise<void> {
