@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
+import type { UserData } from '../data/user';
 
 export class AccountInfoPage {
   readonly page: Page;
@@ -73,5 +74,37 @@ export class AccountInfoPage {
 
   async expectToBeLoaded(): Promise<void> {
     await expect(this.heading).toBeVisible();
+  }
+
+  async fillAccountDetails(user: UserData): Promise<void> {
+    await this.mrTitleRadio.check();
+
+    await this.passwordInput.fill(user.password);
+
+    await this.daySelect.selectOption(user.day);
+    await this.monthSelect.selectOption(user.month);
+    await this.yearSelect.selectOption(user.year);
+
+    await this.newsletterCheckbox.check();
+    await this.specialOffersCheckbox.check();
+
+    await this.firstNameInput.fill(user.firstName);
+    await this.lastNameInput.fill(user.lastName);
+    await this.companyInput.fill(user.company);
+    await this.addressInput.fill(user.address);
+    await this.address2Input.fill(user.address2);
+
+    await this.countrySelect.selectOption({
+      label: user.country,
+    });
+
+    await this.stateInput.fill(user.state);
+    await this.cityInput.fill(user.city);
+    await this.zipcodeInput.fill(user.zipcode);
+    await this.mobileNumberInput.fill(user.mobileNumber);
+  }
+
+  async createAccount(): Promise<void> {
+    await this.createAccountButton.click();
   }
 }
