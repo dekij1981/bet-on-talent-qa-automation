@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 import { createUserData } from '../data/user';
 import { AccountCreatedPage } from '../pages/AccountCreatedPage';
@@ -40,10 +40,8 @@ test('registers a new user successfully', async ({ page, request }) => {
     });
   }
 });
-test('shows an error when registering with an existing email', async ({
-  page,
-  request,
-}) => {
+
+test('shows an error when registering with an existing email', async ({ page, request }) => {
   const user = createUserData();
 
   const signupLoginPage = new SignupLoginPage(page);
