@@ -248,14 +248,14 @@ The exact matching rules are not defined in the assignment, so this scenario sho
 
 # Automation Prioritisation
 
-| Test Case | Priority | Automate |
-|---|---|---|
-| TC-REG-001 Successful registration | P0 | Yes |
-| TC-REG-002 Existing email registration | P0 | Yes |
-| TC-REG-003 Missing required information | P1 | Optional |
-| TC-SEARCH-001 Known product search | P0 | Yes |
-| TC-SEARCH-002 No matching products | P0 | Yes |
-| TC-SEARCH-003 Partial product search | P1 | Optional |
+| Test Case                               | Priority | Automate |
+| --------------------------------------- | -------- | -------- |
+| TC-REG-001 Successful registration      | P0       | Yes      |
+| TC-REG-002 Existing email registration  | P0       | Yes      |
+| TC-REG-003 Missing required information | P1       | Optional |
+| TC-SEARCH-001 Known product search      | P0       | Yes      |
+| TC-SEARCH-002 No matching products      | P0       | Yes      |
+| TC-SEARCH-003 Partial product search    | P1       | Optional |
 
 The initial automated suite focuses on four P0 scenarios.
 

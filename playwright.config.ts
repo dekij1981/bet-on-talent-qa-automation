@@ -12,9 +12,7 @@ const isCI = Boolean(process.env.CI);
 const configuredWorkers = Number(process.env.WORKERS);
 
 const workers =
-  Number.isInteger(configuredWorkers) && configuredWorkers > 0
-    ? configuredWorkers
-    : 2;
+  Number.isInteger(configuredWorkers) && configuredWorkers > 0 ? configuredWorkers : 2;
 
 export default defineConfig({
   testDir: './src/tests',
@@ -36,9 +34,7 @@ export default defineConfig({
   ],
 
   use: {
-    baseURL:
-      process.env.BASE_URL ??
-      'https://automationexercise.com',
+    baseURL: process.env.BASE_URL ?? 'https://automationexercise.com',
 
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',

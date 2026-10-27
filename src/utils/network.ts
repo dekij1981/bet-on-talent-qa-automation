@@ -12,9 +12,7 @@ export async function blockThirdPartyRequests(page: Page): Promise<void> {
     const requestUrl = new URL(route.request().url());
 
     const shouldBlock = blockedHostSuffixes.some(
-      (host) =>
-        requestUrl.hostname === host ||
-        requestUrl.hostname.endsWith(`.${host}`),
+      (host) => requestUrl.hostname === host || requestUrl.hostname.endsWith(`.${host}`),
     );
 
     if (shouldBlock) {
