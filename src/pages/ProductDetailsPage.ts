@@ -4,6 +4,8 @@ export class ProductDetailsPage {
   readonly page: Page;
   readonly quantityInput: Locator;
   readonly addToCartButton: Locator;
+  readonly addedHeading: Locator;
+  readonly addedMessage: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -12,6 +14,14 @@ export class ProductDetailsPage {
 
     this.addToCartButton = page.getByRole('button', {
       name: 'Add to cart',
+    });
+
+    this.addedHeading = page.getByRole('heading', {
+      name: 'Added!',
+    });
+
+    this.addedMessage = page.getByText('Your product has been added to cart.', {
+      exact: true,
     });
   }
 
@@ -50,5 +60,14 @@ export class ProductDetailsPage {
   async expectAddToCartAvailable(): Promise<void> {
     await expect(this.addToCartButton).toBeVisible();
     await expect(this.addToCartButton).toBeEnabled();
+  }
+
+  async addToCart(): Promise<void> {
+    await this.addToCartButton.click();
+  }
+
+  async expectAddedToCart(): Promise<void> {
+    await expect(this.addedHeading).toBeVisible();
+    await expect(this.addedMessage).toBeVisible();
   }
 }
