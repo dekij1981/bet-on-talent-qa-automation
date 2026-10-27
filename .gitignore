@@ -1,0 +1,47 @@
+# ==========================================
+#  Dependency Directories & Build Artifacts
+# ==========================================
+node_modules/
+/dist/
+/out/
+.npm/
+
+# ==========================================
+#  Playwright Specific Artifacts
+# ==========================================
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.local-browsers/
+/playwright/.cache/
+
+# Block test reports generated in the root or custom folders
+*.xml
+*.html
+/playwright-coverage/
+
+# ==========================================
+#  Security & Environment Variables
+# ==========================================
+.env
+.env.local
+.env.*.local
+*.pem
+
+# ==========================================
+#  IDE, Editors & OS Specific
+# ==========================================
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# OS generated files
+.DS_Store
+.DS_Store?
+Thumbs.db
+ehthumbs.db

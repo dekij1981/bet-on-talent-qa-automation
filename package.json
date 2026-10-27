@@ -1,0 +1,41 @@
+{
+  "name": "bet-on-talent-qa-automation",
+  "version": "1.0.0",
+  "description": "Playwright and TypeScript end-to-end automation assessment for Automation Exercise.",
+  "private": true,
+  "author": "Dejan Jovanovic",
+  "license": "MIT",
+  "keywords": [
+    "playwright",
+    "typescript",
+    "qa-automation",
+    "e2e-testing",
+    "test-automation",
+    "automation-exercise"
+  ],
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:ui": "playwright test --ui",
+    "report": "playwright show-report",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "1.61.0",
+    "@types/node": "^24.13.2",
+    "dotenv": "^17.4.2",
+    "eslint": "^10.11.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-playwright": "^2.12.0",
+    "globals": "^17.12.0",
+    "prettier": "^3.9.6",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.70.0"
+  }
+}
