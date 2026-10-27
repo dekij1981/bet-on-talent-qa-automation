@@ -40,3 +40,56 @@ test('registers a new user successfully', async ({ page, request }) => {
     });
   }
 });
+test('shows an error when registering with an existing email', async ({
+  page,
+  request,
+}) => {
+  const user = createUserData();
+
+  const signupLoginPage = new SignupLoginPage(page);
+
+  await blockThirdPartyRequests(page);
+
+  try {
+    const createResponse = await request.post('/api/createAccount', {
+      form: {
+        name: user.name,
+        email: user.email,
+        password: user.password,
+        title: 'Mr',
+        birth_date: user.day,
+        birth_month: user.month,
+        birth_year: user.year,
+        firstname: user.firstName,
+        lastname: user.lastName,
+        company: user.company,
+        address1: user.address,
+        address2: user.address2,
+        country: user.country,
+        zipcode: user.zipcode,
+        state: user.state,
+        city: user.city,
+        mobile_number: user.mobileNumber,
+      },
+    });
+
+    const createBody = await createResponse.json();
+
+    expect(createBody.responseCode).toBe(201);
+    expect(createBody.message).toBe('User created!');
+
+    await signupLoginPage.open();
+    await signupLoginPage.expectToBeLoaded();
+
+    await signupLoginPage.startSignup(user.name, user.email);
+
+    await signupLoginPage.expectExistingEmailError();
+  } finally {
+    await request.delete('/api/deleteAccount', {
+      form: {
+        email: user.email,
+        password: user.password,
+      },
+    });
+  }
+});
