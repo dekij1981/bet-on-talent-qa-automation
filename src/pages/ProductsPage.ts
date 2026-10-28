@@ -16,9 +16,7 @@ export class ProductsPage {
 
     this.searchInput = page.getByPlaceholder('Search Product');
 
-    this.searchButton = page.getByRole('button', {
-      name: 'Search Product',
-    });
+    this.searchButton = page.locator('#submit_search');
 
     this.searchedProductsHeading = page.getByRole('heading', {
       name: 'Searched Products',

@@ -38,11 +38,11 @@ export class ProductDetailsPage {
       }),
     ).toBeVisible();
 
-    await expect(
-      this.page.getByText(availability, {
-        exact: true,
-      }),
-    ).toBeVisible();
+    const availabilityInfo = this.page.locator('.product-information p').filter({
+      hasText: 'Availability:',
+    });
+
+    await expect(availabilityInfo).toContainText(availability);
   }
 
   async expectDefaultQuantity(): Promise<void> {
