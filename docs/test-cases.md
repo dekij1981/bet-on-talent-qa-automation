@@ -201,17 +201,30 @@ Example:
 1. Navigate to the `Products` page.
 2. Enter the non-existing search term.
 3. Submit the search.
-4. Inspect the search results.
+4. Verify that the `Searched Products` section is displayed.
+5. Verify that no product cards are returned.
 
 ### Expected Result
 
-- No unrelated products should be returned as valid matches.
-- The application should remain usable.
-- No application error or broken page should occur.
+- The `Searched Products` section is displayed.
+- No product cards are returned.
+- No unrelated products are shown as valid matches.
+- The application remains usable.
+- No application error or broken page occurs.
 
 ### Notes
 
-The application may not provide a dedicated "no results" message. The automated assertion should reflect the application's real behaviour rather than assuming a message that does not exist.
+The application does not provide a dedicated "no results" message. When a non-empty search term has no matches, the `Searched Products` section remains visible but contains no product cards.
+
+The automated assertion should reflect this actual behaviour rather than assuming a message that the application does not provide.
+
+From a UX perspective, a clearer empty-state message would improve the experience, for example:
+
+`No results for your search query. Try checking your spelling or use more general terms.`
+
+This is documented as a UX recommendation only and is not treated as the current expected behaviour of the application.
+
+An empty search should be treated as a separate edge case because the application behaves differently from a non-empty search that has no matches.
 
 ---
 
