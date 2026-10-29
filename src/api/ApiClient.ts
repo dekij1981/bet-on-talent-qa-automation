@@ -107,6 +107,18 @@ export class ApiClient {
   private async parse<T extends object = object>(response: APIResponse): Promise<ApiBody & T> {
     // A non-2xx status means the server itself failed, not a business error.
     expect(response.ok(), `${response.url()} returned HTTP ${response.status()}`).toBe(true);
-    return (await response.json()) as ApiBody & T;
+
+    // The API sends JSON with content-type text/html, so the body is parsed, not the header
+    // checked. An HTML page here usually means a proxy or bot-protection page, not the API.
+    const text = await response.text();
+    try {
+      return JSON.parse(text) as ApiBody & T;
+    } catch {
+      const title = /<title>([^<]*)<\/title>/i.exec(text)?.[1]?.trim();
+      throw new Error(
+        `${response.url()} returned HTTP ${response.status()} with a non-JSON body` +
+          (title ? ` (page title: "${title}")` : `: ${text.slice(0, 120)}`),
+      );
+    }
   }
 }
