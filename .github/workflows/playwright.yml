@@ -46,6 +46,23 @@ jobs:
       BASE_URL: ${{ vars.BASE_URL || 'https://automationexercise.com' }}
       WORKERS: ${{ vars.WORKERS || '2' }}
     steps:
+      # Diagnostic only: records what this runner receives from the site, so a blocked or
+      # degraded site is visible as an annotation instead of only as test timeouts.
+      - name: Check site reachability from the runner
+        run: |
+          page=$(curl -sS -o page.html -D page.headers -w '%{http_code}' "$BASE_URL/products" || echo 000)
+          api=$(curl -sS -o api.json -D api.headers -w '%{http_code}' "$BASE_URL/api/productsList" || echo 000)
+          title=$(grep -o -m1 '<title>[^<]*' page.html | sed 's/<title>//' || true)
+          mitigated=$(grep -ih '^cf-mitigated' page.headers api.headers | tr -d '\r' | head -1 || true)
+          if python3 -c 'import json; json.load(open("api.json"))' 2>/dev/null; then api_body=JSON; else api_body=not-JSON; fi
+          if grep -q 'All Products' page.html; then page_body=app; else page_body=not-app; fi
+          summary="page HTTP $page ($page_body, title: \"$title\"); API HTTP $api ($api_body); ${mitigated:-no cf-mitigated header}"
+          if [ "$page_body" = app ] && [ "$api_body" = JSON ]; then
+            echo "::notice title=Site reachable::$summary"
+          else
+            echo "::warning title=Site not serving the app to this runner::$summary"
+          fi
+
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
