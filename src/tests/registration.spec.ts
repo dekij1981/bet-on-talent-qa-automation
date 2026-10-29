@@ -5,7 +5,7 @@ test('registers a new user successfully', async ({
   signupLoginPage,
   accountInfoPage,
   accountCreatedPage,
-  homePage,
+  header,
 }) => {
   const user = userFactory.build();
 
@@ -15,13 +15,13 @@ test('registers a new user successfully', async ({
   await signupLoginPage.startSignup(user.name, user.email);
 
   await accountInfoPage.expectToBeLoaded();
-  await accountInfoPage.fillAccountDetails(user);
+  await accountInfoPage.fillAll(user);
   await accountInfoPage.createAccount();
 
   await accountCreatedPage.expectAccountCreated();
   await accountCreatedPage.continue();
 
-  await homePage.expectLoggedInAs(user.name);
+  await header.expectLoggedInAs(user.name);
 });
 
 test('shows an error when registering with an existing email', async ({

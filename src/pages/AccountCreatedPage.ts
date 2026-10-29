@@ -1,24 +1,22 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
 export class AccountCreatedPage {
+  readonly page: Page;
   readonly heading: Locator;
-  readonly continueLink: Locator;
+  readonly continueButton: Locator;
 
   constructor(page: Page) {
-    this.heading = page.getByRole('heading', {
-      name: 'Account Created!',
-    });
-
-    this.continueLink = page.getByRole('link', {
-      name: 'Continue',
-    });
+    this.page = page;
+    this.heading = page.getByTestId('account-created');
+    this.continueButton = page.getByTestId('continue-button');
   }
 
   async expectAccountCreated(): Promise<void> {
-    await expect(this.heading).toBeVisible();
+    await expect(this.page).toHaveURL(/\/account_created$/);
+    await expect(this.heading).toHaveText('Account Created!');
   }
 
   async continue(): Promise<void> {
-    await this.continueLink.click();
+    await this.continueButton.click();
   }
 }
