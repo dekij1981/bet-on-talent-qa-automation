@@ -1,5 +1,17 @@
 import { expect, type Locator, type Page, type Response } from '@playwright/test';
 
+/**
+ * True when `url` is the results page for `term`, in either form:
+ * - what the site builds today: '/products?search=' + term, not encoded (DEF-04);
+ * - any correctly encoded form (%20 or +), so a fix of DEF-04 is still recognised and
+ *   TC-SEARCH-009 reports it instead of timing out here.
+ */
+export function isSearchResultsUrl(url: URL, term: string): boolean {
+  if (url.pathname !== '/products') return false;
+  const asBuiltBySite = new URL(`/products?search=${term}`, url).search;
+  return url.search === asBuiltBySite || url.searchParams.get('search') === term;
+}
+
 export class ProductsPage {
   readonly page: Page;
   readonly allProductsHeading: Locator;
@@ -40,16 +52,16 @@ export class ProductsPage {
 
   /** Searches through the UI and returns the response of the results page. */
   async search(term: string): Promise<Response> {
-    // The click handler does window.location = '/products?search=' + term. Waiting for that
-    // exact URL (and its load event) prevents reading the previous page's results.
-    const expectedUrl = new URL(`/products?search=${term}`, this.page.url()).href;
+    const isResultsFor = (url: URL) => isSearchResultsUrl(url, term);
     const response = this.page.waitForResponse(
-      (res) => res.url() === expectedUrl && res.request().isNavigationRequest(),
+      (res) => res.request().isNavigationRequest() && isResultsFor(new URL(res.url())),
     );
 
     await this.searchInput.fill(term);
     await this.searchButton.click();
-    await this.page.waitForURL((url) => url.href === expectedUrl);
+    // Waiting for this term's results URL (and its load event) prevents reading the
+    // previous page's results.
+    await this.page.waitForURL(isResultsFor);
     return response;
   }
 
