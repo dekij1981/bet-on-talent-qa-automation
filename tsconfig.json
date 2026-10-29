@@ -9,13 +9,6 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
 
-    "paths": {
-      "@pages/*": ["./src/pages/*"],
-      "@fixtures/*": ["./src/fixtures/*"],
-      "@utils/*": ["./src/utils/*"],
-      "@data/*": ["./src/data/*"]
-    },
-
     "types": ["@playwright/test", "node"]
   },
   "include": ["src/**/*.ts", "playwright.config.ts"]

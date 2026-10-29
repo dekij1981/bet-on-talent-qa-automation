@@ -15,6 +15,9 @@
   ],
   "scripts": {
     "test": "playwright test",
+    "test:smoke": "playwright test --grep @smoke",
+    "test:regression": "playwright test --grep @regression",
+    "test:known-defects": "playwright test --grep @known-defect",
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug",
     "test:ui": "playwright test --ui",
@@ -37,5 +40,8 @@
     "prettier": "^3.9.6",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.70.0"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

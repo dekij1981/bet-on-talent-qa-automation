@@ -13,19 +13,19 @@
 
 ## Summary
 
-| ID | Title | Priority | Automation | Tags |
-| --- | --- | :-: | --- | --- |
-| [TC-REG-001](#tc-reg-001) | Successful registration with all fields | P0 | Yes | `@smoke` `@registration` |
-| [TC-REG-002](#tc-reg-002) | Registration with an already registered email | P0 | Yes | `@smoke` `@registration` |
-| [TC-REG-003](#tc-reg-003) | New account can log out and log back in | P1 | Yes | `@regression` `@registration` |
-| [TC-REG-004](#tc-reg-004) | Registration with mandatory fields only | P1 | Yes | `@regression` `@registration` |
-| [TC-REG-005](#tc-reg-005) | Missing required account information | P1 | Yes | `@regression` `@registration` |
-| [TC-REG-006](#tc-reg-006) | Invalid email format on signup | P1 | Yes | `@regression` `@registration` |
-| [TC-REG-007](#tc-reg-007) | Empty name or email on signup | P1 | Yes | `@regression` `@registration` |
-| [TC-REG-008](#tc-reg-008) | Registered email in different letter case | P1 | Yes — known defect | `@regression` `@registration` `@known-defect` |
-| [TC-REG-009](#tc-reg-009) | Name and email carried to the account form | P2 | Yes | `@regression` `@registration` |
-| [TC-REG-010](#tc-reg-010) | Unicode and special characters in personal data | P2 | Yes | `@regression` `@registration` |
-| [TC-REG-011](#tc-reg-011) | HTML in the name is displayed as text | P2 | Yes | `@regression` `@registration` |
+| ID                        | Title                                           | Priority | Automation         | Tags                                          |
+| ------------------------- | ----------------------------------------------- | :------: | ------------------ | --------------------------------------------- |
+| [TC-REG-001](#tc-reg-001) | Successful registration with all fields         |    P0    | Yes                | `@smoke` `@registration`                      |
+| [TC-REG-002](#tc-reg-002) | Registration with an already registered email   |    P0    | Yes                | `@smoke` `@registration`                      |
+| [TC-REG-003](#tc-reg-003) | New account can log out and log back in         |    P1    | Yes                | `@regression` `@registration`                 |
+| [TC-REG-004](#tc-reg-004) | Registration with mandatory fields only         |    P1    | Yes                | `@regression` `@registration`                 |
+| [TC-REG-005](#tc-reg-005) | Missing required account information            |    P1    | Yes                | `@regression` `@registration`                 |
+| [TC-REG-006](#tc-reg-006) | Invalid email format on signup                  |    P1    | Yes                | `@regression` `@registration`                 |
+| [TC-REG-007](#tc-reg-007) | Empty name or email on signup                   |    P1    | Yes                | `@regression` `@registration`                 |
+| [TC-REG-008](#tc-reg-008) | Registered email in different letter case       |    P1    | Yes — known defect | `@regression` `@registration` `@known-defect` |
+| [TC-REG-009](#tc-reg-009) | Name and email carried to the account form      |    P2    | Yes                | `@regression` `@registration`                 |
+| [TC-REG-010](#tc-reg-010) | Unicode and special characters in personal data |    P2    | Yes                | `@regression` `@registration`                 |
+| [TC-REG-011](#tc-reg-011) | HTML in the name is displayed as text           |    P2    | Yes                | `@regression` `@registration`                 |
 
 > **Cleanup for every test case:** each account a test creates is deleted by the cleanup fixture
 > through `DELETE /api/deleteAccount`, even if the test fails. Cleanup is therefore not listed as
@@ -34,6 +34,7 @@
 ---
 
 <a id="tc-reg-001"></a>
+
 ## TC-REG-001 — Successful registration with all fields
 
 Priority: P0  
@@ -52,18 +53,18 @@ automatically, and that the entered data is stored correctly. This is the main o
 
 ### Test Data
 
-| Field | Value |
-| --- | --- |
-| Name | generated, e.g. `QA User <id>` |
-| Email | `qa.<run-id>.<worker-index>.<random>@example.com` |
-| Title | Mr |
-| Password | from config |
-| Date of birth | 5 March 1990 |
-| Newsletter, Special offers | ticked |
-| First name / Last name | generated |
-| Company, Address, Address 2 | generated |
-| Country | Canada (not the default) |
-| State, City, Zipcode, Mobile | generated |
+| Field                        | Value                                             |
+| ---------------------------- | ------------------------------------------------- |
+| Name                         | generated, e.g. `QA User <id>`                    |
+| Email                        | `qa.<run-id>.<worker-index>.<random>@example.com` |
+| Title                        | Mr                                                |
+| Password                     | from config                                       |
+| Date of birth                | 5 March 1990                                      |
+| Newsletter, Special offers   | ticked                                            |
+| First name / Last name       | generated                                         |
+| Company, Address, Address 2  | generated                                         |
+| Country                      | Canada (not the default)                          |
+| State, City, Zipcode, Mobile | generated                                         |
 
 ### Steps
 
@@ -88,6 +89,7 @@ automatically, and that the entered data is stored correctly. This is the main o
 ---
 
 <a id="tc-reg-002"></a>
+
 ## TC-REG-002 — Registration with an already registered email
 
 Priority: P0  
@@ -102,12 +104,12 @@ already belongs to an existing account.
 
 ### Preconditions
 
-- A user with email *E* is created through `POST /api/createAccount`.
+- A user with email _E_ is created through `POST /api/createAccount`.
 
 ### Steps
 
 1. Open `/login`.
-2. In **New User Signup!**, enter a different name and email *E*.
+2. In **New User Signup!**, enter a different name and email _E_.
 3. Click **Signup**.
 
 ### Expected Result
@@ -125,6 +127,7 @@ duplicate, not about creating an account.
 ---
 
 <a id="tc-reg-003"></a>
+
 ## TC-REG-003 — New account can log out and log back in
 
 Priority: P1  
@@ -151,6 +154,7 @@ value if the user cannot log in again.
 ---
 
 <a id="tc-reg-004"></a>
+
 ## TC-REG-004 — Registration with mandatory fields only
 
 Priority: P1  
@@ -178,6 +182,7 @@ Verify that optional fields are really optional. Most users skip them.
 ---
 
 <a id="tc-reg-005"></a>
+
 ## TC-REG-005 — Missing required account information
 
 Priority: P1  
@@ -194,16 +199,16 @@ account is created.
 
 One test run per required field, with only that field left empty:
 
-| Run | Empty field |
-| :-: | --- |
-| 1 | Password |
-| 2 | First name |
-| 3 | Last name |
-| 4 | Address |
-| 5 | State |
-| 6 | City |
-| 7 | Zipcode |
-| 8 | Mobile number |
+| Run | Empty field   |
+| :-: | ------------- |
+|  1  | Password      |
+|  2  | First name    |
+|  3  | Last name     |
+|  4  | Address       |
+|  5  | State         |
+|  6  | City          |
+|  7  | Zipcode       |
+|  8  | Mobile number |
 
 ### Steps
 
@@ -225,6 +230,7 @@ message text, because the text differs between browsers.
 ---
 
 <a id="tc-reg-006"></a>
+
 ## TC-REG-006 — Invalid email format on signup
 
 Priority: P1  
@@ -238,12 +244,12 @@ Verify that an email address with an invalid format cannot be used to start regi
 
 ### Test Data
 
-| Run | Email |
-| :-: | --- |
-| 1 | `plainaddress` |
-| 2 | `user@` |
-| 3 | `@domain.com` |
-| 4 | `user name@example.com` |
+| Run | Email                   |
+| :-: | ----------------------- |
+|  1  | `plainaddress`          |
+|  2  | `user@`                 |
+|  3  | `@domain.com`           |
+|  4  | `user name@example.com` |
 
 ### Steps
 
@@ -259,6 +265,7 @@ Verify that an email address with an invalid format cannot be used to start regi
 ---
 
 <a id="tc-reg-007"></a>
+
 ## TC-REG-007 — Empty name or email on signup
 
 Priority: P1  
@@ -272,10 +279,10 @@ Verify that both fields of the signup step are required.
 
 ### Test Data
 
-| Run | Name | Email |
-| :-: | --- | --- |
-| 1 | *(empty)* | valid unique email |
-| 2 | valid name | *(empty)* |
+| Run | Name       | Email              |
+| :-: | ---------- | ------------------ |
+|  1  | _(empty)_  | valid unique email |
+|  2  | valid name | _(empty)_          |
 
 ### Steps
 
@@ -290,6 +297,7 @@ Verify that both fields of the signup step are required.
 ---
 
 <a id="tc-reg-008"></a>
+
 ## TC-REG-008 — Registered email in different letter case
 
 Priority: P1  
@@ -304,12 +312,12 @@ case-insensitive, so `JOHN@EXAMPLE.COM` and `john@example.com` belong to the sam
 
 ### Preconditions
 
-- A user with lowercase email *e* is created through the API.
+- A user with lowercase email _e_ is created through the API.
 
 ### Steps
 
 1. Open `/login`.
-2. Sign up with *e* written in uppercase.
+2. Sign up with _e_ written in uppercase.
 
 ### Expected Result
 
@@ -327,6 +335,7 @@ be removed. The cleanup fixture deletes both accounts.
 ---
 
 <a id="tc-reg-009"></a>
+
 ## TC-REG-009 — Name and email carried to the account form
 
 Priority: P2  
@@ -351,6 +360,7 @@ cannot be changed after the duplicate check has run.
 ---
 
 <a id="tc-reg-010"></a>
+
 ## TC-REG-010 — Unicode and special characters in personal data
 
 Priority: P2  
@@ -365,11 +375,11 @@ displayed without being corrupted.
 
 ### Test Data
 
-| Field | Value |
-| --- | --- |
-| Name | `Đorđe Šćepanović` |
+| Field   | Value                          |
+| ------- | ------------------------------ |
+| Name    | `Đorđe Šćepanović`             |
 | Address | `Kneza Miloša 7/II, "Stan" #4` |
-| City | `Novi Sad` |
+| City    | `Novi Sad`                     |
 
 ### Steps
 
@@ -385,6 +395,7 @@ displayed without being corrupted.
 ---
 
 <a id="tc-reg-011"></a>
+
 ## TC-REG-011 — HTML in the name is displayed as text
 
 Priority: P2  

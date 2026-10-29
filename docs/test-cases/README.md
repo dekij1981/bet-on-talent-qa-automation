@@ -18,10 +18,10 @@ Every scenario was designed from hands-on exploration of the live application, u
 and its public API. Exploration also found **5 defects**, listed in
 [Defects and Observations](#defects-and-observations).
 
-| Feature | File | Test cases | P0 | Known defects |
-| --- | --- | :-: | :-: | :-: |
-| User registration | [registration.md](registration.md) | 11 | 2 | 1 |
-| Product search | [product-search.md](product-search.md) | 11 | 2 | 4 |
+| Feature           | File                                   | Test cases | P0  | Known defects |
+| ----------------- | -------------------------------------- | :--------: | :-: | :-----------: |
+| User registration | [registration.md](registration.md)     |     11     |  2  |       1       |
+| Product search    | [product-search.md](product-search.md) |     11     |  2  |       4       |
 
 ---
 
@@ -29,11 +29,11 @@ and its public API. Exploration also found **5 defects**, listed in
 
 Priority = **how likely a real user is to hit the scenario × impact if it fails**.
 
-| Priority | Meaning | Execution |
-| --- | --- | --- |
-| **P0** | Core user journey. If it fails, users cannot register or cannot find and buy a product. | Every commit (`@smoke`) |
-| **P1** | Important negative, validation or data-integrity scenario that real users run into. | Every pull request (`@regression`) |
-| **P2** | Edge case, robustness, security hygiene or UX gap. | Regression run or manual |
+| Priority | Meaning                                                                                 | Execution                          |
+| -------- | --------------------------------------------------------------------------------------- | ---------------------------------- |
+| **P0**   | Core user journey. If it fails, users cannot register or cannot find and buy a product. | Every commit (`@smoke`)            |
+| **P1**   | Important negative, validation or data-integrity scenario that real users run into.     | Every pull request (`@regression`) |
+| **P2**   | Edge case, robustness, security hygiene or UX gap.                                      | Regression run or manual           |
 
 # Deciding What to Automate
 
@@ -43,12 +43,12 @@ be checked reliably, and a P2 scenario is worth automating if it is cheap and st
 
 A scenario is automated when it meets **all** of these rules:
 
-| # | Rule | Question to ask |
-| :-: | --- | --- |
-| 1 | **Clear oracle** | Is there one objectively correct result the test can assert? |
-| 2 | **Repeated value** | Will this check be useful on every release, not just once? |
-| 3 | **Deterministic** | Can we control the data and the environment so the result is the same every run? |
-| 4 | **Worth the cost** | Is it cheaper to keep the script working than to repeat the check by hand? |
+|  #  | Rule               | Question to ask                                                                  |
+| :-: | ------------------ | -------------------------------------------------------------------------------- |
+|  1  | **Clear oracle**   | Is there one objectively correct result the test can assert?                     |
+|  2  | **Repeated value** | Will this check be useful on every release, not just once?                       |
+|  3  | **Deterministic**  | Can we control the data and the environment so the result is the same every run? |
+|  4  | **Worth the cost** | Is it cheaper to keep the script working than to repeat the check by hand?       |
 
 A scenario stays **manual** when any rule fails. Typical reasons:
 
@@ -61,7 +61,7 @@ Two further choices follow from these rules:
 
 - **Data-driven over copy-paste.** Variations of one scenario (8 required fields, 4 invalid
   emails) are one parameterised test, which makes them cheap to automate.
-- **Known defects are automated too.** The test asserts the *correct* behaviour and is marked
+- **Known defects are automated too.** The test asserts the _correct_ behaviour and is marked
   `test.fail()`. The suite stays green today and reports when the defect is fixed. This keeps the
   defect visible in the report instead of in a forgotten ticket. See
   [How Known Defects Are Automated](#how-known-defects-are-automated) for the full approach.
@@ -70,22 +70,22 @@ Each test case states its reason in a **Why automated** or **Why manual** line.
 
 # Automation Status
 
-| Status | Meaning |
-| --- | --- |
-| **Yes** | Automated and expected to pass. |
+| Status                 | Meaning                                                                                                                                                          |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Yes**                | Automated and expected to pass.                                                                                                                                  |
 | **Yes — known defect** | Automated with `test.fail()` and a link to the defect. The suite reports when the defect is fixed, so the expectation gets updated instead of silently drifting. |
-| **Manual** | Not automated. The reason is given in the test case. |
+| **Manual**             | Not automated. The reason is given in the test case.                                                                                                             |
 
 # Tags
 
 Every automated test has tags, so CI and developers can run exactly the subset they need.
 
-| Tag | Meaning | When it runs |
-| --- | --- | --- |
-| `@smoke` | All P0 tests: the core journeys. Fast (a few minutes). | Every commit and before every deploy |
-| `@regression` | All other automated tests (P1 and P2). | Every pull request and nightly |
-| `@registration` | Registration feature. | When working on that feature |
-| `@search` | Product search and product details. | When working on that feature |
+| Tag             | Meaning                                                | When it runs                                              |
+| --------------- | ------------------------------------------------------ | --------------------------------------------------------- |
+| `@smoke`        | All P0 tests: the core journeys. Fast (a few minutes). | Every commit and before every deploy                      |
+| `@regression`   | All other automated tests (P1 and P2).                 | Every pull request and nightly                            |
+| `@registration` | Registration feature.                                  | When working on that feature                              |
+| `@search`       | Product search and product details.                    | When working on that feature                              |
 | `@known-defect` | Tests that document an open defect with `test.fail()`. | With `@regression`; can be listed on their own for triage |
 
 Each test has exactly one of `@smoke` or `@regression`, plus one feature tag. The full suite is
@@ -134,21 +134,21 @@ According to the Playwright documentation:
 
 What that means for each run:
 
-| Application behaviour | Test result | Report |
-| --- | --- | --- |
-| Defect still present (assertion fails) | Expected failure | Green, with the `issue` annotation |
-| Defect fixed (assertion passes) | Unexpected pass | **Red** — "expected to fail, but passed" |
+| Application behaviour                  | Test result      | Report                                   |
+| -------------------------------------- | ---------------- | ---------------------------------------- |
+| Defect still present (assertion fails) | Expected failure | Green, with the `issue` annotation       |
+| Defect fixed (assertion passes)        | Unexpected pass  | **Red** — "expected to fail, but passed" |
 
 ## Options considered
 
-| Option | What happens | Decision |
-| --- | --- | --- |
-| `test.fail()` | Runs every time; green while the defect exists; red when it is fixed. | **Chosen** |
-| `test.skip()` | Never runs. The docs describe it for tests that are irrelevant in a configuration, not for known defects. | Rejected: a fix or a change in the defect goes unnoticed |
-| `test.fixme()` | Never runs. The docs describe it for tests that are slow or crash. | Rejected: same as skip |
-| Assert the buggy behaviour ("characterisation test") | Green today, e.g. asserts the cart shows × 1 after adding −2. | Rejected: the code then claims the bug is *expected*; when the bug is fixed the test fails and looks like a regression |
-| Keep the test failing (red) | Suite is permanently red. | Rejected: hides real regressions |
-| Don't automate | Defect only in this document. | Rejected: no signal when it changes |
+| Option                                               | What happens                                                                                              | Decision                                                                                                               |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `test.fail()`                                        | Runs every time; green while the defect exists; red when it is fixed.                                     | **Chosen**                                                                                                             |
+| `test.skip()`                                        | Never runs. The docs describe it for tests that are irrelevant in a configuration, not for known defects. | Rejected: a fix or a change in the defect goes unnoticed                                                               |
+| `test.fixme()`                                       | Never runs. The docs describe it for tests that are slow or crash.                                        | Rejected: same as skip                                                                                                 |
+| Assert the buggy behaviour ("characterisation test") | Green today, e.g. asserts the cart shows × 1 after adding −2.                                             | Rejected: the code then claims the bug is _expected_; when the bug is fixed the test fails and looks like a regression |
+| Keep the test failing (red)                          | Suite is permanently red.                                                                                 | Rejected: hides real regressions                                                                                       |
+| Don't automate                                       | Defect only in this document.                                                                             | Rejected: no signal when it changes                                                                                    |
 
 ## Rules for writing a known-defect test
 
@@ -195,13 +195,13 @@ would then hide a broken test instead of tracking a defect.
 an ordinary test that must pass. If shared code breaks, that ordinary test turns red, even though
 the known-defect test stays green.
 
-| Known-defect test | Defect | Steps it relies on | Guarded by |
-| --- | --- | --- | --- |
-| [TC-REG-008](registration.md#tc-reg-008) | DEF-01 | Create a user through the API; signup form; duplicate-email message | [TC-REG-002](registration.md#tc-reg-002) |
-| [TC-SEARCH-007](product-search.md#tc-search-007) | DEF-02 | Open product page; set quantity; Add to cart; read cart | [TC-SEARCH-001](product-search.md#tc-search-001) |
-| [TC-SEARCH-008](product-search.md#tc-search-008) | DEF-03 | Search through the UI; read results | [TC-SEARCH-001](product-search.md#tc-search-001), [TC-SEARCH-004](product-search.md#tc-search-004) |
-| [TC-SEARCH-009](product-search.md#tc-search-009) | DEF-04 | Search through the UI; compare result names | [TC-SEARCH-003](product-search.md#tc-search-003) |
-| [TC-SEARCH-011](product-search.md#tc-search-011) | DEF-05 | Type in the search field; read results heading | [TC-SEARCH-001](product-search.md#tc-search-001) |
+| Known-defect test                                | Defect | Steps it relies on                                                  | Guarded by                                                                                         |
+| ------------------------------------------------ | ------ | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| [TC-REG-008](registration.md#tc-reg-008)         | DEF-01 | Create a user through the API; signup form; duplicate-email message | [TC-REG-002](registration.md#tc-reg-002)                                                           |
+| [TC-SEARCH-007](product-search.md#tc-search-007) | DEF-02 | Open product page; set quantity; Add to cart; read cart             | [TC-SEARCH-001](product-search.md#tc-search-001)                                                   |
+| [TC-SEARCH-008](product-search.md#tc-search-008) | DEF-03 | Search through the UI; read results                                 | [TC-SEARCH-001](product-search.md#tc-search-001), [TC-SEARCH-004](product-search.md#tc-search-004) |
+| [TC-SEARCH-009](product-search.md#tc-search-009) | DEF-04 | Search through the UI; compare result names                         | [TC-SEARCH-003](product-search.md#tc-search-003)                                                   |
+| [TC-SEARCH-011](product-search.md#tc-search-011) | DEF-05 | Type in the search field; read results heading                      | [TC-SEARCH-001](product-search.md#tc-search-001)                                                   |
 
 Rule for reviewers: **a known-defect test is only trustworthy while its guard test is green.** If a
 guard test is red, fix that first, then re-check the known-defect tests.
@@ -256,43 +256,43 @@ report doubles as a live list of open defects.
 
 # Automation Prioritisation
 
-| Test Case | Priority | Automate | Tags |
-| --- | :-: | --- | --- |
-| [TC-REG-001](registration.md#tc-reg-001) Successful registration with all fields | P0 | Yes | `@smoke` `@registration` |
-| [TC-REG-002](registration.md#tc-reg-002) Registration with an already registered email | P0 | Yes | `@smoke` `@registration` |
-| [TC-REG-003](registration.md#tc-reg-003) New account can log out and log back in | P1 | Yes | `@regression` `@registration` |
-| [TC-REG-004](registration.md#tc-reg-004) Registration with mandatory fields only | P1 | Yes | `@regression` `@registration` |
-| [TC-REG-005](registration.md#tc-reg-005) Missing required account information | P1 | Yes | `@regression` `@registration` |
-| [TC-REG-006](registration.md#tc-reg-006) Invalid email format on signup | P1 | Yes | `@regression` `@registration` |
-| [TC-REG-007](registration.md#tc-reg-007) Empty name or email on signup | P1 | Yes | `@regression` `@registration` |
-| [TC-REG-008](registration.md#tc-reg-008) Registered email in different letter case | P1 | Yes — known defect | `@regression` `@registration` `@known-defect` |
-| [TC-REG-009](registration.md#tc-reg-009) Name and email carried to the account form | P2 | Yes | `@regression` `@registration` |
-| [TC-REG-010](registration.md#tc-reg-010) Unicode and special characters in personal data | P2 | Yes | `@regression` `@registration` |
-| [TC-REG-011](registration.md#tc-reg-011) HTML in the name is displayed as text | P2 | Yes | `@regression` `@registration` |
-| [TC-SEARCH-001](product-search.md#tc-search-001) Search for a known product and add it to the cart | P0 | Yes | `@smoke` `@search` |
-| [TC-SEARCH-002](product-search.md#tc-search-002) Search with no matching products | P0 | Yes | `@smoke` `@search` |
-| [TC-SEARCH-003](product-search.md#tc-search-003) Search using a partial product name | P1 | Yes | `@regression` `@search` |
-| [TC-SEARCH-004](product-search.md#tc-search-004) Search is case-insensitive | P1 | Yes | `@regression` `@search` |
-| [TC-SEARCH-005](product-search.md#tc-search-005) Empty search returns all products | P1 | Yes | `@regression` `@search` |
-| [TC-SEARCH-006](product-search.md#tc-search-006) Every result opens a matching product page | P1 | Yes | `@regression` `@search` |
-| [TC-SEARCH-007](product-search.md#tc-search-007) Quantity rejects zero and negative values | P1 | Yes — known defect | `@regression` `@search` `@known-defect` |
-| [TC-SEARCH-008](product-search.md#tc-search-008) Leading spaces are ignored | P1 | Yes — known defect | `@regression` `@search` `@known-defect` |
-| [TC-SEARCH-009](product-search.md#tc-search-009) Search terms containing `&` or `#` | P1 | Yes — known defect | `@regression` `@search` `@known-defect` |
-| [TC-SEARCH-010](product-search.md#tc-search-010) Script and SQL-like input is handled safely | P2 | Yes | `@regression` `@search` |
-| [TC-SEARCH-011](product-search.md#tc-search-011) Pressing Enter submits the search | P2 | Yes — known defect | `@regression` `@search` `@known-defect` |
+| Test Case                                                                                          | Priority | Automate           | Tags                                          |
+| -------------------------------------------------------------------------------------------------- | :------: | ------------------ | --------------------------------------------- |
+| [TC-REG-001](registration.md#tc-reg-001) Successful registration with all fields                   |    P0    | Yes                | `@smoke` `@registration`                      |
+| [TC-REG-002](registration.md#tc-reg-002) Registration with an already registered email             |    P0    | Yes                | `@smoke` `@registration`                      |
+| [TC-REG-003](registration.md#tc-reg-003) New account can log out and log back in                   |    P1    | Yes                | `@regression` `@registration`                 |
+| [TC-REG-004](registration.md#tc-reg-004) Registration with mandatory fields only                   |    P1    | Yes                | `@regression` `@registration`                 |
+| [TC-REG-005](registration.md#tc-reg-005) Missing required account information                      |    P1    | Yes                | `@regression` `@registration`                 |
+| [TC-REG-006](registration.md#tc-reg-006) Invalid email format on signup                            |    P1    | Yes                | `@regression` `@registration`                 |
+| [TC-REG-007](registration.md#tc-reg-007) Empty name or email on signup                             |    P1    | Yes                | `@regression` `@registration`                 |
+| [TC-REG-008](registration.md#tc-reg-008) Registered email in different letter case                 |    P1    | Yes — known defect | `@regression` `@registration` `@known-defect` |
+| [TC-REG-009](registration.md#tc-reg-009) Name and email carried to the account form                |    P2    | Yes                | `@regression` `@registration`                 |
+| [TC-REG-010](registration.md#tc-reg-010) Unicode and special characters in personal data           |    P2    | Yes                | `@regression` `@registration`                 |
+| [TC-REG-011](registration.md#tc-reg-011) HTML in the name is displayed as text                     |    P2    | Yes                | `@regression` `@registration`                 |
+| [TC-SEARCH-001](product-search.md#tc-search-001) Search for a known product and add it to the cart |    P0    | Yes                | `@smoke` `@search`                            |
+| [TC-SEARCH-002](product-search.md#tc-search-002) Search with no matching products                  |    P0    | Yes                | `@smoke` `@search`                            |
+| [TC-SEARCH-003](product-search.md#tc-search-003) Search using a partial product name               |    P1    | Yes                | `@regression` `@search`                       |
+| [TC-SEARCH-004](product-search.md#tc-search-004) Search is case-insensitive                        |    P1    | Yes                | `@regression` `@search`                       |
+| [TC-SEARCH-005](product-search.md#tc-search-005) Empty search returns all products                 |    P1    | Yes                | `@regression` `@search`                       |
+| [TC-SEARCH-006](product-search.md#tc-search-006) Every result opens a matching product page        |    P1    | Yes                | `@regression` `@search`                       |
+| [TC-SEARCH-007](product-search.md#tc-search-007) Quantity rejects zero and negative values         |    P1    | Yes — known defect | `@regression` `@search` `@known-defect`       |
+| [TC-SEARCH-008](product-search.md#tc-search-008) Leading spaces are ignored                        |    P1    | Yes — known defect | `@regression` `@search` `@known-defect`       |
+| [TC-SEARCH-009](product-search.md#tc-search-009) Search terms containing `&` or `#`                |    P1    | Yes — known defect | `@regression` `@search` `@known-defect`       |
+| [TC-SEARCH-010](product-search.md#tc-search-010) Script and SQL-like input is handled safely       |    P2    | Yes                | `@regression` `@search`                       |
+| [TC-SEARCH-011](product-search.md#tc-search-011) Pressing Enter submits the search                 |    P2    | Yes — known defect | `@regression` `@search` `@known-defect`       |
 
 The **P0 scenarios** cover the journey most users take: register → be logged in → search →
 open a product → add it to the cart. They run on every commit as the smoke suite.
 
 ### Deliberately not automated
 
-| Area | Reason |
-| --- | --- |
-| Password policy and whitespace-only values | No requirement exists to assert against. Raised as a product question ([OBS-01](#observations)). |
-| Visual layout and responsive design | Needs a visual-regression baseline; out of scope for functional E2E. |
-| Login and Delete Account features | Not in the brief. Login is used only in TC-REG-003 to prove registration worked; accounts are deleted through the API in cleanup. |
-| Firefox and WebKit on every commit | Chromium runs on every commit; other browsers are optional CI projects. |
-| Ads and consent dialogs | Third-party content we don't control. Blocked at network level (see the main README). |
+| Area                                       | Reason                                                                                                                            |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| Password policy and whitespace-only values | No requirement exists to assert against. Raised as a product question ([OBS-01](#observations)).                                  |
+| Visual layout and responsive design        | Needs a visual-regression baseline; out of scope for functional E2E.                                                              |
+| Login and Delete Account features          | Not in the brief. Login is used only in TC-REG-003 to prove registration worked; accounts are deleted through the API in cleanup. |
+| Firefox and WebKit on every commit         | Chromium runs on every commit; other browsers are optional CI projects.                                                           |
+| Ads and consent dialogs                    | Third-party content we don't control. Blocked at network level (see the main README).                                             |
 
 ---
 
@@ -303,13 +303,13 @@ open a product → add it to the cart. They run on every commit as the smoke sui
 Every defect was reproduced at least twice through the UI (real typing and clicks), on
 29 October 2026. Test accounts used for reproduction were deleted afterwards.
 
-| ID | Severity | Summary | Covered by |
-| --- | --- | --- | --- |
-| DEF-01 | Major | Duplicate-email check is case-sensitive, so a second account is created | [TC-REG-008](registration.md#tc-reg-008) |
-| DEF-02 | Major | Quantity `-2` reduces the cart; `0` shows a false "Added!" message | [TC-SEARCH-007](product-search.md#tc-search-007) |
-| DEF-03 | Minor | Leading spaces in the search term return no results | [TC-SEARCH-008](product-search.md#tc-search-008) |
-| DEF-04 | Major | Search term is not URL-encoded, so `&` and `#` break the search | [TC-SEARCH-009](product-search.md#tc-search-009) |
-| DEF-05 | Minor | Pressing Enter does not submit the search | [TC-SEARCH-011](product-search.md#tc-search-011) |
+| ID     | Severity | Summary                                                                 | Covered by                                       |
+| ------ | -------- | ----------------------------------------------------------------------- | ------------------------------------------------ |
+| DEF-01 | Major    | Duplicate-email check is case-sensitive, so a second account is created | [TC-REG-008](registration.md#tc-reg-008)         |
+| DEF-02 | Major    | Quantity `-2` reduces the cart; `0` shows a false "Added!" message      | [TC-SEARCH-007](product-search.md#tc-search-007) |
+| DEF-03 | Minor    | Leading spaces in the search term return no results                     | [TC-SEARCH-008](product-search.md#tc-search-008) |
+| DEF-04 | Major    | Search term is not URL-encoded, so `&` and `#` break the search         | [TC-SEARCH-009](product-search.md#tc-search-009) |
+| DEF-05 | Minor    | Pressing Enter does not submit the search                               | [TC-SEARCH-011](product-search.md#tc-search-011) |
 
 **DEF-01 — steps to reproduce**
 
@@ -362,14 +362,14 @@ handled.
 
 ## Observations
 
-| ID | Type | Observation | Effect on the suite |
-| --- | --- | --- | --- |
-| OBS-01 | Product question | No password policy: password `a` is accepted. A single space passes every `required` field and is stored as the value. | Not automated; product question |
-| OBS-02 | UX | No empty-state message when a search has no matches. | TC-SEARCH-002 asserts zero product cards |
-| OBS-03 | Test infrastructure | The API returns HTTP 200 for every response, including errors; the real status is `responseCode` in the body. | API client checks `responseCode` |
-| OBS-04 | Test infrastructure | Each product card renders its name and price twice (card and hover overlay). | Locators are scoped to one of them |
-| OBS-05 | Test infrastructure | Google Ads cause three separate problems: full-screen `#google_vignette` ads that swallow clicks (seen 4 times in one session), banners that shift the layout during a click, and auto-inserted links that add text such as "Browse Clothing" to product names. | Ad domains are blocked in a fixture |
-| OBS-06 | Test infrastructure | Search matches product name **and category**, but not brand: `Polo` returns 1 product, although 6 products have the brand Polo. | Result sets are compared with the API |
+| ID     | Type                | Observation                                                                                                                                                                                                                                                     | Effect on the suite                      |
+| ------ | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| OBS-01 | Product question    | No password policy: password `a` is accepted. A single space passes every `required` field and is stored as the value.                                                                                                                                          | Not automated; product question          |
+| OBS-02 | UX                  | No empty-state message when a search has no matches.                                                                                                                                                                                                            | TC-SEARCH-002 asserts zero product cards |
+| OBS-03 | Test infrastructure | The API returns HTTP 200 for every response, including errors; the real status is `responseCode` in the body.                                                                                                                                                   | API client checks `responseCode`         |
+| OBS-04 | Test infrastructure | Each product card renders its name and price twice (card and hover overlay).                                                                                                                                                                                    | Locators are scoped to one of them       |
+| OBS-05 | Test infrastructure | Google Ads cause three separate problems: full-screen `#google_vignette` ads that swallow clicks (seen 4 times in one session), banners that shift the layout during a click, and auto-inserted links that add text such as "Browse Clothing" to product names. | Ad domains are blocked in a fixture      |
+| OBS-06 | Test infrastructure | Search matches product name **and category**, but not brand: `Polo` returns 1 product, although 6 products have the brand Polo.                                                                                                                                 | Result sets are compared with the API    |
 
 ---
 

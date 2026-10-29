@@ -16,25 +16,25 @@ These rules were confirmed during exploration and are used as the test oracle:
 
 - Matching is **case-insensitive** and finds the term **anywhere** in the text.
 - It searches the product **name and category**, but not the brand. For example, `dress` also
-  returns *Sleeves Top and Short - Blue & Pink*, whose category is *Dress*.
+  returns _Sleeves Top and Short - Blue & Pink_, whose category is _Dress_.
 - Because of this, "every result name contains the term" is only asserted for terms that match by
   name. For any term, the UI results are compared with `POST /api/searchProduct`.
 
 ## Summary
 
-| ID | Title | Priority | Automation | Tags |
-| --- | --- | :-: | --- | --- |
-| [TC-SEARCH-001](#tc-search-001) | Search for a known product and add it to the cart | P0 | Yes | `@smoke` `@search` |
-| [TC-SEARCH-002](#tc-search-002) | Search with no matching products | P0 | Yes | `@smoke` `@search` |
-| [TC-SEARCH-003](#tc-search-003) | Search using a partial product name | P1 | Yes | `@regression` `@search` |
-| [TC-SEARCH-004](#tc-search-004) | Search is case-insensitive | P1 | Yes | `@regression` `@search` |
-| [TC-SEARCH-005](#tc-search-005) | Empty search returns all products | P1 | Yes | `@regression` `@search` |
-| [TC-SEARCH-006](#tc-search-006) | Every result opens a matching product page | P1 | Yes | `@regression` `@search` |
-| [TC-SEARCH-007](#tc-search-007) | Quantity rejects zero and negative values | P1 | Yes — known defect | `@regression` `@search` `@known-defect` |
-| [TC-SEARCH-008](#tc-search-008) | Leading spaces are ignored | P1 | Yes — known defect | `@regression` `@search` `@known-defect` |
-| [TC-SEARCH-009](#tc-search-009) | Search terms containing `&` or `#` | P1 | Yes — known defect | `@regression` `@search` `@known-defect` |
-| [TC-SEARCH-010](#tc-search-010) | Script and SQL-like input is handled safely | P2 | Yes | `@regression` `@search` |
-| [TC-SEARCH-011](#tc-search-011) | Pressing Enter submits the search | P2 | Yes — known defect | `@regression` `@search` `@known-defect` |
+| ID                              | Title                                             | Priority | Automation         | Tags                                    |
+| ------------------------------- | ------------------------------------------------- | :------: | ------------------ | --------------------------------------- |
+| [TC-SEARCH-001](#tc-search-001) | Search for a known product and add it to the cart |    P0    | Yes                | `@smoke` `@search`                      |
+| [TC-SEARCH-002](#tc-search-002) | Search with no matching products                  |    P0    | Yes                | `@smoke` `@search`                      |
+| [TC-SEARCH-003](#tc-search-003) | Search using a partial product name               |    P1    | Yes                | `@regression` `@search`                 |
+| [TC-SEARCH-004](#tc-search-004) | Search is case-insensitive                        |    P1    | Yes                | `@regression` `@search`                 |
+| [TC-SEARCH-005](#tc-search-005) | Empty search returns all products                 |    P1    | Yes                | `@regression` `@search`                 |
+| [TC-SEARCH-006](#tc-search-006) | Every result opens a matching product page        |    P1    | Yes                | `@regression` `@search`                 |
+| [TC-SEARCH-007](#tc-search-007) | Quantity rejects zero and negative values         |    P1    | Yes — known defect | `@regression` `@search` `@known-defect` |
+| [TC-SEARCH-008](#tc-search-008) | Leading spaces are ignored                        |    P1    | Yes — known defect | `@regression` `@search` `@known-defect` |
+| [TC-SEARCH-009](#tc-search-009) | Search terms containing `&` or `#`                |    P1    | Yes — known defect | `@regression` `@search` `@known-defect` |
+| [TC-SEARCH-010](#tc-search-010) | Script and SQL-like input is handled safely       |    P2    | Yes                | `@regression` `@search`                 |
+| [TC-SEARCH-011](#tc-search-011) | Pressing Enter submits the search                 |    P2    | Yes — known defect | `@regression` `@search` `@known-defect` |
 
 > **Cart isolation:** every test runs in a fresh browser context, so the cart always starts
 > empty and no cleanup is needed.
@@ -42,6 +42,7 @@ These rules were confirmed during exploration and are used as the test oracle:
 ---
 
 <a id="tc-search-001"></a>
+
 ## TC-SEARCH-001 — Search for a known product and add it to the cart
 
 Priority: P0  
@@ -58,13 +59,13 @@ details, and add a chosen quantity to the cart. This is the main path from searc
 
 Read from the test-data file, not hard-coded in the test:
 
-| Field | Value |
-| --- | --- |
-| Search term | `Blue Top` |
-| Name | Blue Top |
-| Price | Rs. 500 |
-| Availability | In Stock |
-| Quantity to add | 3 |
+| Field           | Value      |
+| --------------- | ---------- |
+| Search term     | `Blue Top` |
+| Name            | Blue Top   |
+| Price           | Rs. 500    |
+| Availability    | In Stock   |
+| Quantity to add | 3          |
 
 ### Steps
 
@@ -97,6 +98,7 @@ that they are displayed.
 ---
 
 <a id="tc-search-002"></a>
+
 ## TC-SEARCH-002 — Search with no matching products
 
 Priority: P0  
@@ -138,6 +140,7 @@ An empty search behaves differently and is covered by [TC-SEARCH-005](#tc-search
 ---
 
 <a id="tc-search-003"></a>
+
 ## TC-SEARCH-003 — Search using a partial product name
 
 Priority: P1  
@@ -152,10 +155,10 @@ Users often type only one word.
 
 ### Test Data
 
-| Run | Term | Note |
-| :-: | --- | --- |
-| 1 | `top` | 14 results; 2 match by category only (e.g. *Little Girls Mr. Panda Shirt*) |
-| 2 | `jeans` | 3 results, all match by name |
+| Run | Term    | Note                                                                       |
+| :-: | ------- | -------------------------------------------------------------------------- |
+|  1  | `top`   | 14 results; 2 match by category only (e.g. _Little Girls Mr. Panda Shirt_) |
+|  2  | `jeans` | 3 results, all match by name                                               |
 
 ### Steps
 
@@ -172,13 +175,14 @@ Users often type only one word.
 ### Notes
 
 A check that "every result name contains the term" would fail for `top`: two results are shirts
-that match only through their category *Tops & Shirts*. The assertion therefore follows the real
+that match only through their category _Tops & Shirts_. The assertion therefore follows the real
 search rule, and the API comparison keeps the test independent of the current catalogue. The
 counts in the table are informational only.
 
 ---
 
 <a id="tc-search-004"></a>
+
 ## TC-SEARCH-004 — Search is case-insensitive
 
 Priority: P1  
@@ -206,6 +210,7 @@ Verify that letter case does not change the results.
 ---
 
 <a id="tc-search-005"></a>
+
 ## TC-SEARCH-005 — Empty search returns all products
 
 Priority: P1  
@@ -230,6 +235,7 @@ Verify what happens when the user clicks search without typing anything.
 ---
 
 <a id="tc-search-006"></a>
+
 ## TC-SEARCH-006 — Every result opens a matching product page
 
 Priority: P1  
@@ -258,6 +264,7 @@ Search term: `top`
 ---
 
 <a id="tc-search-007"></a>
+
 ## TC-SEARCH-007 — Quantity rejects zero and negative values
 
 Priority: P1  
@@ -272,9 +279,9 @@ Verify that the quantity input does not accept values that make no sense for a p
 ### Test Data
 
 | Run | Quantity |
-| :-: | --- |
-| 1 | `0` |
-| 2 | `-2` |
+| :-: | -------- |
+|  1  | `0`      |
+|  2  | `-2`     |
 
 ### Preconditions
 
@@ -300,6 +307,7 @@ Verify that the quantity input does not accept values that make no sense for a p
 ---
 
 <a id="tc-search-008"></a>
+
 ## TC-SEARCH-008 — Leading spaces are ignored
 
 Priority: P1  
@@ -337,6 +345,7 @@ therefore uses leading spaces only.
 ---
 
 <a id="tc-search-009"></a>
+
 ## TC-SEARCH-009 — Search terms containing `&` or `#`
 
 Priority: P1  
@@ -350,10 +359,10 @@ Verify that special characters that appear in real product names are searched li
 
 ### Test Data
 
-| Run | Term | Real product containing it |
-| :-: | --- | --- |
-| 1 | `Fit & Flare` | Sleeveless Unicorn Print Fit & Flare Net Dress - Multi |
-| 2 | `Blue & Pink` | Sleeves Top and Short - Blue & Pink |
+| Run | Term          | Real product containing it                             |
+| :-: | ------------- | ------------------------------------------------------ |
+|  1  | `Fit & Flare` | Sleeveless Unicorn Print Fit & Flare Net Dress - Multi |
+|  2  | `Blue & Pink` | Sleeves Top and Short - Blue & Pink                    |
 
 ### Steps
 
@@ -377,6 +386,7 @@ The term is cut at `&` or `#`.
 ---
 
 <a id="tc-search-010"></a>
+
 ## TC-SEARCH-010 — Script and SQL-like input is handled safely
 
 Priority: P2  
@@ -406,6 +416,7 @@ Verify that input that looks like code is treated as plain text.
 ---
 
 <a id="tc-search-011"></a>
+
 ## TC-SEARCH-011 — Pressing Enter submits the search
 
 Priority: P2  
