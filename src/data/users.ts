@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 
 import { env } from '../config/env';
+import { testData } from './test-data';
 
 export type Title = 'Mr' | 'Mrs';
 
@@ -52,30 +53,17 @@ export function uniqueEmail(workerIndex: number): string {
   return `qa.${runId}.${workerIndex}.${uniqueId()}@${env.emailDomain}`;
 }
 
+/** Unique identity (name, email) per call; profile values from test data (see test-data.ts). */
 export function buildUser(workerIndex: number, overrides: Partial<UserData> = {}): UserData {
-  const id = uniqueId();
+  const profile = testData.user;
 
   return {
-    name: `QA User ${id}`,
+    ...profile,
+    // Validated as Mr or Mrs when the test data is loaded.
+    title: profile.title as Title,
+    name: `QA User ${uniqueId()}`,
     email: uniqueEmail(workerIndex),
     password: env.userPassword,
-    title: 'Mr',
-    birthDay: '5',
-    birthMonth: '3',
-    birthYear: '1990',
-    newsletter: true,
-    specialOffers: true,
-    firstName: 'Qa',
-    lastName: `Tester-${id}`,
-    company: 'Test Company',
-    address: `Test Street ${id}`,
-    address2: 'Apartment 1',
-    // Not the default (India), so the test proves the selection is stored.
-    country: 'Canada',
-    state: 'Ontario',
-    city: 'Toronto',
-    zipcode: 'M5V2T6',
-    mobileNumber: '5551234567',
     ...overrides,
   };
 }
