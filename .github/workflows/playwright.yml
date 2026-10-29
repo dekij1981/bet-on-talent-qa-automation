@@ -45,6 +45,8 @@ jobs:
       # Repository variables override the defaults without code changes.
       BASE_URL: ${{ vars.BASE_URL || 'https://automationexercise.com' }}
       WORKERS: ${{ vars.WORKERS || '2' }}
+      # Optional path to a test data file in the repo; empty means built-in defaults.
+      TEST_DATA_FILE: ${{ vars.TEST_DATA_FILE }}
     steps:
       # Diagnostic only: records what this runner receives from the site, so a blocked or
       # degraded site is visible as an annotation instead of only as test timeouts.

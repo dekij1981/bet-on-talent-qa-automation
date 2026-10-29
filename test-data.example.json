@@ -1,0 +1,26 @@
+{
+  "user": {
+    "title": "Mrs",
+    "firstName": "Ana",
+    "lastName": "Tester",
+    "address": "Collins Street 10",
+    "country": "Australia",
+    "state": "Victoria",
+    "city": "Melbourne",
+    "zipcode": "3000",
+    "mobileNumber": "0412345678"
+  },
+  "product": {
+    "searchTerm": "Men Tshirt",
+    "name": "Men Tshirt",
+    "price": "Rs. 400",
+    "availability": "In Stock",
+    "quantity": 2
+  },
+  "search": {
+    "partialTerms": ["dress", "jeans"],
+    "ampersandTerms": ["Fit & Flare"],
+    "detailPagesTerm": "dress",
+    "detailPagesSampleSize": 3
+  }
+}
