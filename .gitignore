@@ -45,3 +45,9 @@ node_modules/
 .DS_Store?
 Thumbs.db
 ehthumbs.db
+
+# ==========================================
+#  Local notes (not part of the submission)
+# ==========================================
+HANDOFF.md
+
