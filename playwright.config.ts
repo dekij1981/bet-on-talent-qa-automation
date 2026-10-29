@@ -1,42 +1,32 @@
-import { defineConfig, devices } from '@playwright/test';
-import dotenv from 'dotenv';
-import path from 'node:path';
+import { defineConfig, devices, type ReporterDescription } from '@playwright/test';
 
-dotenv.config({
-  path: path.resolve(process.cwd(), '.env'),
-  quiet: true,
-});
+import { env } from './src/config/env';
 
-const isCI = Boolean(process.env.CI);
+const reporters: ReporterDescription[] = [
+  ['list'],
+  ['html', { outputFolder: 'playwright-report', open: 'never' }],
+];
 
-const configuredWorkers = Number(process.env.WORKERS);
-
-const workers =
-  Number.isInteger(configuredWorkers) && configuredWorkers > 0 ? configuredWorkers : 2;
+if (env.isCI) {
+  reporters.push(['junit', { outputFile: 'reports/junit.xml' }], ['github']);
+}
 
 export default defineConfig({
   testDir: './src/tests',
 
   fullyParallel: true,
-  forbidOnly: isCI,
-  retries: isCI ? 2 : 0,
-  workers,
+  forbidOnly: env.isCI,
+  retries: env.retries,
+  // The site is a shared public demo; a small worker count avoids rate limiting.
+  workers: env.workers,
 
-  reporter: [
-    ['list'],
-    [
-      'html',
-      {
-        outputFolder: 'playwright-report',
-        open: 'never',
-      },
-    ],
-  ],
+  reporter: reporters,
 
   use: {
-    baseURL: process.env.BASE_URL ?? 'https://automationexercise.com',
+    baseURL: env.baseUrl,
+    testIdAttribute: 'data-qa',
 
-    trace: 'retain-on-failure',
+    trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
@@ -46,10 +36,7 @@ export default defineConfig({
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
-        viewport: {
-          width: 1280,
-          height: 720,
-        },
+        viewport: { width: 1280, height: 720 },
       },
     },
   ],
