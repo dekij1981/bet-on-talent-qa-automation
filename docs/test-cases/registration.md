@@ -27,9 +27,13 @@
 | [TC-REG-010](#tc-reg-010) | Unicode and special characters in personal data |    P2    | Yes                | `@regression` `@registration`                 |
 | [TC-REG-011](#tc-reg-011) | HTML in the name is displayed as text           |    P2    | Yes                | `@regression` `@registration`                 |
 
-> **Cleanup for every test case:** each account a test creates is deleted by the cleanup fixture
-> through `DELETE /api/deleteAccount`, even if the test fails. Cleanup is therefore not listed as
-> a test step.
+> **Cleanup for every test case:** each account a test creates is deleted through
+> `DELETE /api/deleteAccount` in fixture teardown, whether the test passed or failed (see
+> [Test Data and Cleanup Strategy](README.md#test-data-and-cleanup-strategy)). Cleanup is therefore
+> not listed as a test step.
+
+> **Test data:** profile values come from the test data configuration (built-in defaults shown
+> below, overridable with `TEST_DATA_FILE`). Name and email are generated for every test.
 
 ---
 
@@ -53,18 +57,18 @@ automatically, and that the entered data is stored correctly. This is the main o
 
 ### Test Data
 
-| Field                        | Value                                             |
-| ---------------------------- | ------------------------------------------------- |
-| Name                         | generated, e.g. `QA User <id>`                    |
-| Email                        | `qa.<run-id>.<worker-index>.<random>@example.com` |
-| Title                        | Mr                                                |
-| Password                     | from config                                       |
-| Date of birth                | 5 March 1990                                      |
-| Newsletter, Special offers   | ticked                                            |
-| First name / Last name       | generated                                         |
-| Company, Address, Address 2  | generated                                         |
-| Country                      | Canada (not the default)                          |
-| State, City, Zipcode, Mobile | generated                                         |
+| Field                        | Value                                                     |
+| ---------------------------- | --------------------------------------------------------- |
+| Name                         | generated, e.g. `QA User <id>`                            |
+| Email                        | generated: `qa.<run-id>.<worker-index>.<random>@<domain>` |
+| Password                     | `TEST_USER_PASSWORD`                                      |
+| Title                        | Mr                                                        |
+| Date of birth                | 5 March 1990                                              |
+| Newsletter, Special offers   | ticked                                                    |
+| First name / Last name       | Qa / Tester                                               |
+| Company, Address, Address 2  | Test Company / Test Street 1 / Apartment 1                |
+| Country                      | Canada (must not be the form default, India)              |
+| State, City, Zipcode, Mobile | Ontario / Toronto / M5V2T6 / 5551234567                   |
 
 ### Steps
 
@@ -307,8 +311,12 @@ Why automated: Documents DEF-01 and detects when it is fixed
 
 ### Objective
 
-Verify that the duplicate-email check ignores letter case. In practice email addresses are
-case-insensitive, so `JOHN@EXAMPLE.COM` and `john@example.com` belong to the same person.
+Verify that the duplicate-email check ignores letter case.
+
+This is an **assumed requirement**, not one from the brief. The domain part of an address is
+case-insensitive by standard; the local part may legally be case-sensitive (RFC 5321), but common
+mail providers treat it as case-insensitive. A site that does not normalise emails can therefore
+create two accounts for the same person, which is the risk this test covers.
 
 ### Preconditions
 
@@ -329,8 +337,9 @@ case-insensitive, so `JOHN@EXAMPLE.COM` and `john@example.com` belong to the sam
 
 ### Notes
 
-Automated with `test.fail()`. When the defect is fixed the test reports it, so the annotation can
-be removed. The cleanup fixture deletes both accounts.
+Automated as a known-defect test: `test.fail()` is called after the precondition user exists and
+the signup page has loaded, so a setup failure is reported as a real failure
+([approach](README.md#how-known-defects-are-automated)). The cleanup fixture deletes both accounts.
 
 ---
 

@@ -94,15 +94,47 @@ a clear message instead of being silently ignored.
 | `RETRIES`              | `2` in CI, otherwise `0`         | Retries per failed test                                              |
 | `TEST_EMAIL_DOMAIN`    | `example.com`                    | Domain of generated test emails                                      |
 | `TEST_USER_PASSWORD`   | `QaPassword123!`                 | Password of generated test users                                     |
-| `PRODUCT_SEARCH_TERM`  | `Blue Top`                       | Term for the search-to-cart journey                                  |
-| `PRODUCT_NAME`         | `Blue Top`                       | Expected product name                                                |
-| `PRODUCT_PRICE`        | `Rs. 500`                        | Expected price                                                       |
-| `PRODUCT_AVAILABILITY` | `In Stock`                       | Expected availability                                                |
-| `PRODUCT_QUANTITY`     | `3`                              | Quantity added to the cart                                           |
+| `TEST_DATA_FILE`       | unset (built-in defaults)        | Optional JSON file with test data, see [Test data](#test-data)       |
+| `PRODUCT_SEARCH_TERM`  | `Blue Top`                       | Term for the search-to-cart journey (overrides the test data file)   |
+| `PRODUCT_NAME`         | `Blue Top`                       | Expected product name (overrides the test data file)                 |
+| `PRODUCT_PRICE`        | `Rs. 500`                        | Expected price (overrides the test data file)                        |
+| `PRODUCT_AVAILABILITY` | `In Stock`                       | Expected availability (overrides the test data file)                 |
+| `PRODUCT_QUANTITY`     | `3`                              | Quantity added to the cart (overrides the test data file)            |
 | `CI`                   | unset                            | Set by CI: enables retries, `forbidOnly`, JUnit and GitHub reporters |
 
 `example.com` is reserved for documentation (RFC 2606), so a generated address can never reach a
-real mailbox. In GitHub Actions, `BASE_URL` and `WORKERS` can be set as repository variables.
+real mailbox. In GitHub Actions, `BASE_URL`, `WORKERS` and `TEST_DATA_FILE` can be set as
+repository variables.
+
+### Test data
+
+Values that depend on the environment live in [src/data/test-data.ts](src/data/test-data.ts) and
+can be replaced without editing TypeScript, through a JSON file:
+
+```bash
+TEST_DATA_FILE=test-data.example.json npm test
+```
+
+| Section   | Contents                                                                 | Used by                           |
+| --------- | ------------------------------------------------------------------------ | --------------------------------- |
+| `user`    | Profile values: title, date of birth, names, address, country, phone     | Registration tests                |
+| `product` | Main product: search term, name, price, availability, quantity           | TC-SEARCH-001, 004, 007, 008, 011 |
+| `search`  | Partial terms, `&` terms, term and sample size for opening product pages | TC-SEARCH-003, 006, 009           |
+
+- **Precedence:** `PRODUCT_*` environment variables → `TEST_DATA_FILE` → built-in defaults. Keep
+  the `PRODUCT_*` lines in `.env` commented out when you use a file, or they win.
+- **Partial files are fine:** any key you leave out keeps its default. See
+  [test-data.example.json](test-data.example.json), which was run against the live site.
+- **Validated on load:** unknown keys, wrong types, empty values, a title other than Mr/Mrs, a
+  quantity below 1 and the form's default country (TC-REG-001 must prove the selection is stored)
+  stop the run before any browser starts, naming the offending key.
+- **Derived, not configured:** the case variants (TC-SEARCH-004) and the leading-space variant
+  (TC-SEARCH-008) are built from the configured search term.
+- **Generated, not configured:** account name and email are unique per test.
+- **Kept in the tests on purpose:** invalid emails, script and SQL-like payloads, the Unicode
+  name, and the non-existing search term. They are the scenario, not environment data.
+- **Catalogue requirements** are checked by the tests themselves: a partial term must return more
+  than one product, and each `&` term must appear in exactly one product name or category.
 
 ## What is tested
 
@@ -128,7 +160,8 @@ src/
 ├── config/env.ts            The only place env vars are read, validated and defaulted
 ├── data/
 │   ├── users.ts             UserData type, unique user builder, list of required fields
-│   └── products.ts          Expected product values (overridable from env), price helpers
+│   ├── products.ts          Main product and search inputs, case variants, price helpers
+│   └── test-data.ts         Defaults + optional TEST_DATA_FILE + PRODUCT_* env, validated
 ├── fixtures/
 │   ├── index.ts             mergeTests(...) → the single `test` that specs import
 │   ├── ad-blocking.ts       Auto fixture: blocks ad, consent and analytics hosts
@@ -198,6 +231,8 @@ brief and are deliberately out of scope.
   `expect(await locator.isVisible())`.
 - After a click that navigates, `waitForURL()` waits for the `load` event, so scripts at the end
   of `<body>` have bound their handlers ([why](#lessons-from-building-the-suite)).
+- `search()` waits for the _next_ page navigation and its `load` event, not for a URL derived
+  from the term, so it never reads the previous page and still works if a fix changes the URL.
 - Type-aware ESLint with `no-floating-promises` catches a missing `await`, the most common cause
   of a Playwright test that passes when it shouldn't.
 
@@ -208,11 +243,14 @@ brief and are deliberately out of scope.
   and run in any order and in parallel.
 - **API for preconditions, UI for the subject.** When a test is not _about_ creating an account
   (for example "email already exists"), the account is created through `POST /api/createAccount`.
-- **Guaranteed cleanup.** The `userFactory` fixture registers every account a test builds or
-  creates. After the test, passed or failed, its teardown deletes each one through
-  `DELETE /api/deleteAccount`. A `404` is accepted, because the account may never have been
-  created (for example in a validation test). Any other response fails the test, so leaks are
-  visible. This was verified with a test that fails on purpose: its account was gone afterwards.
+- **Cleanup in fixture teardown.** `userFactory` registers every account _before_ it is created,
+  so an account whose creation outcome is unknown is still covered. After the test body, passed
+  or failed, teardown deletes each one through `DELETE /api/deleteAccount`, with a 10 s limit per
+  request and its own 30 s budget, so it also runs after a test timeout. Every account is
+  attempted even if an earlier one fails; failures are reported together (emails only, no
+  passwords) and fail the test. `404` is accepted: the account may never have been created.
+  Cleanup cannot run if the process is killed, and fails visibly if the API is down; the run ID
+  in the email identifies any leftovers.
 - **Real API status.** The API answers HTTP 200 for everything, including errors
   ([OBS-03](docs/test-cases/README.md#observations)), so `ApiClient` checks `responseCode` in the
   JSON body. A non-2xx status, or an HTML page instead of JSON, is reported as a server failure
@@ -221,61 +259,37 @@ brief and are deliberately out of scope.
 
 ### Stability evidence
 
-| Check                                              | Result                                                                                                                                                                             |
-| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Full suite, 3 × `--repeat-each=3` (360 executions) | 352 passed; all 8 failures fell in two short windows when the public site degraded (HTTP 503, page loads not finishing within 30 s, passing tests 4–6× slower in the same minutes) |
-| Fresh clone of `main`, no `.env`                   | 40 passed                                                                                                                                                                          |
-| CI full suite (pull request)                       | 40 passed in about 1 min                                                                                                                                                           |
+| Check                                              | Code version | Result                                                                                                                                                                             |
+| -------------------------------------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Full suite, 3 × `--repeat-each=3` (360 executions) | PR #1        | 352 passed; all 8 failures fell in two short windows when the public site degraded (HTTP 503, page loads not finishing within 30 s, passing tests 4–6× slower in the same minutes) |
+| Fresh clone of `main`, no `.env`                   | PR #1        | 40 passed                                                                                                                                                                          |
+| CI full suite (pull request)                       | PR #1        | 40 passed in about 1 min                                                                                                                                                           |
 
 No failure was traced to test logic, so timeouts were not raised: that would only hide an
 unavailable site. Retries exist in CI as a safety net.
 
 ## Known defects
 
-Exploration found five defects. Each is automated as a `test.fail()` test that asserts the
-**correct** behaviour: the suite stays green while the defect exists and turns red the moment it
-is fixed. The reasoning, the rejected alternatives and the procedure for a fix are in
+Exploration found five defects. The brief does not define these behaviours, so the expected
+result of each rests on a stated basis: an assumption about good practice, or the site's own
+markup or data.
+
+| Defect | Summary                                                    | Basis for "expected"              | Test          | Guard test    |
+| ------ | ---------------------------------------------------------- | --------------------------------- | ------------- | ------------- |
+| DEF-01 | Duplicate-email check is case-sensitive                    | Assumption: emails are normalised | TC-REG-008    | TC-REG-002    |
+| DEF-02 | Quantity `-2` reduces the cart; `0` shows a false "Added!" | Site markup: `min="1"`            | TC-SEARCH-007 | TC-SEARCH-001 |
+| DEF-03 | Leading spaces break the search                            | Assumption: input is trimmed      | TC-SEARCH-008 | TC-SEARCH-001 |
+| DEF-04 | Search term not URL-encoded, so `&` cuts it                | Site data: real product names     | TC-SEARCH-009 | TC-SEARCH-003 |
+| DEF-05 | Enter does not submit the search                           | Assumption: UX convention         | TC-SEARCH-011 | TC-SEARCH-001 |
+
+Each defect has a test that asserts the **correct** behaviour and calls `test.fail()` once its
+setup and preconditions have passed. While the defect exists the test fails as expected and the
+suite stays green; when it is fixed, the run turns red with "expected to fail, but passed". A
+broken setup is red too, instead of being taken for the defect.
+
+The rules, the rejected alternatives, what was verified, the remaining false-green risk and the
+procedure for a fix are in one place:
 [How Known Defects Are Automated](docs/test-cases/README.md#how-known-defects-are-automated).
-
-| Defect | Summary                                                    | Test          | Guard test    |
-| ------ | ---------------------------------------------------------- | ------------- | ------------- |
-| DEF-01 | Duplicate-email check is case-sensitive                    | TC-REG-008    | TC-REG-002    |
-| DEF-02 | Quantity `-2` reduces the cart; `0` shows a false "Added!" | TC-SEARCH-007 | TC-SEARCH-001 |
-| DEF-03 | Leading spaces break the search                            | TC-SEARCH-008 | TC-SEARCH-001 |
-| DEF-04 | Search term not URL-encoded (`&`, `#`)                     | TC-SEARCH-009 | TC-SEARCH-003 |
-| DEF-05 | Enter does not submit the search                           | TC-SEARCH-011 | TC-SEARCH-001 |
-
-```ts
-test.fail(
-  'TC-SEARCH-011 Pressing Enter submits the search',
-  {
-    tag: ['@regression', '@search', '@known-defect'],
-    annotation: { type: 'issue', description: 'DEF-05: Enter does not submit the search' },
-  },
-  async ({ productsPage }) => {
-    await productsPage.open();
-    await productsPage.pressEnterToSearch('Blue Top');
-    await productsPage.expectSearchResults(); // correct behaviour; fails today
-  },
-);
-```
-
-`test.fail()` accepts _any_ failure, so a broken locator could hide behind it. Three safeguards:
-
-- **Guard tests.** Every step a known-defect test relies on is also covered by an ordinary test
-  (table above). A known-defect test is only trustworthy while its guard is green.
-- **Checked failure point.** Each known-defect test was checked to fail on the defect assertion
-  itself, not on setup or a locator.
-- **No waits that only work while the defect exists.** For example, `search()` accepts both the
-  unencoded URL the site builds today and a correctly encoded one, so after a fix of DEF-04 the
-  test completes and reports the fix instead of timing out
-  ([details](#lessons-from-building-the-suite)).
-
-DEF-02 needed extra care. With quantity `0` the cart is correctly unchanged, and the defect is
-only the false "Added!" message. Checking that a modal is _not_ shown right after a click is a
-race, so the test first waits for jQuery's AJAX counter (`jQuery.active === 0`), which drops only
-after the callback that opens the modal has run. The modal check uses `expect.soft`, so for `-2`
-the report shows both symptoms: the false message and the reduced cart.
 
 ## CI and reports
 
@@ -319,26 +333,31 @@ To set this up in a fork: **Settings → Pages → Source: GitHub Actions**.
 
 ## Debugging a failure
 
-| Situation                    | What to do                                                                                                                                           |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Failed locally               | `npm run report` opens the HTML report with screenshot and video of the failure                                                                      |
-| Need a trace locally         | `npx playwright test -g "TC-…" --trace on`, then open it from the report                                                                             |
-| Step through a test          | `npm run test:debug` or `npm run test:ui`                                                                                                            |
-| Failed in CI                 | Download `playwright-report` from the run; retried tests include a trace                                                                             |
-| Many tests red in CI at once | Check the "Site reachable" annotation first: the site may be down or not serving the app to the runner                                               |
-| A known-defect test is red   | "Expected to fail, but passed" means the defect is probably fixed: follow [When a defect is fixed](docs/test-cases/README.md#when-a-defect-is-fixed) |
+| Situation                                   | What to do                                                                                                                                           |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Failed locally                              | `npm run report` opens the HTML report with screenshot and video of the failure                                                                      |
+| Need a trace locally                        | `npx playwright test -g "TC-…" --trace on`, then open it from the report                                                                             |
+| Step through a test                         | `npm run test:debug` or `npm run test:ui`                                                                                                            |
+| Failed in CI                                | Download `playwright-report` from the run; retried tests include a trace                                                                             |
+| Many tests red in CI at once                | Check the "Site reachable" annotation first: the site may be down or not serving the app to the runner                                               |
+| A known-defect test is red with an error    | Its setup or a precondition failed (e.g. test data no longer matches the catalogue): fix that, not the defect                                        |
+| A known-defect test is red without an error | "Expected to fail, but passed" means the defect is probably fixed: follow [When a defect is fixed](docs/test-cases/README.md#when-a-defect-is-fixed) |
 
 ## Technical decisions and trade-offs
 
-| Decision                              | Reason                                                                     | Trade-off                                                                                                          |
-| ------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Page objects provided as fixtures     | Specs declare what they need; construction and lifecycle live in one place | One more layer to learn                                                                                            |
-| Cleanup in fixture teardown           | Runs even when the test fails; tests contain no cleanup code               | Cleanup is less visible when reading one test                                                                      |
-| Locators: `data-qa` → role/label → id | `data-qa` is a contract with developers and survives styling changes       | Ids for the icon-only search button and the unlabelled quantity input; CSS classes where the site has nothing else |
-| API as oracle for search              | Tests keep working when the catalogue changes                              | Trusts the API to apply the same rule as the UI                                                                    |
-| Data-driven tests, value in the title | One failing data row is visible on its own                                 | 40 tests for 22 cases                                                                                              |
-| 2 workers by default                  | Shared public site; more load caused 503s                                  | Slower than the machine allows                                                                                     |
-| Chromium only                         | Fast and enough for functional coverage                                    | No Firefox or WebKit coverage                                                                                      |
+| Decision                                 | Reason                                                                              | Trade-off                                                                                                          |
+| ---------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Page objects provided as fixtures        | Specs declare what they need; construction and lifecycle live in one place          | One more layer to learn                                                                                            |
+| Cleanup in fixture teardown              | Runs after the test body whether it passed or failed; tests contain no cleanup code | Cannot run if the process is killed; less visible when reading one test                                            |
+| Locators: `data-qa` → role/label → id    | `data-qa` is a contract with developers and survives styling changes                | Ids for the icon-only search button and the unlabelled quantity input; CSS classes where the site has nothing else |
+| API as oracle for search                 | Tests keep working when the catalogue changes                                       | Trusts the API to apply the same rule as the UI                                                                    |
+| Data-driven tests, value in the title    | One failing data row is visible on its own                                          | 40 tests for 22 cases                                                                                              |
+| 2 workers by default                     | Shared public site; more load caused 503s                                           | Slower than the machine allows                                                                                     |
+| Chromium only                            | Fast and enough for functional coverage                                             | No Firefox or WebKit coverage                                                                                      |
+| `test.fail()` called after setup         | A broken setup is red instead of an "expected" failure                              | Failures after the marker, including teardown, are still accepted                                                  |
+| `search()` waits for the next navigation | No stale results, and a fix that changes the URL still reaches the assertion        | Assumes search navigates; an in-page (AJAX) search would need a new wait                                           |
+| TC-SEARCH-006 opens a sample of results  | Duration stays bounded as the catalogue grows                                       | A single broken link outside the sample can be missed                                                              |
+| Test data in an optional JSON file       | Environment data changes without code; no new dependency                            | Hand-written validation instead of a schema library                                                                |
 
 ## Lessons from building the suite
 
@@ -350,18 +369,19 @@ test clicked "Add to cart" before the handler existed. Fix: `waitForURL()` after
 waits for the `load` event. Result: 20 of 20 runs passed. A sleep would also have "worked", but
 only by hiding the race.
 
-**Reading results from the previous page.** The search button sets `window.location`, so after
-the click the old page stays on screen for a moment. `search()` waits for the results URL of
-_this_ term, and its `load` event, before anything reads the results.
+**Reading results from the previous page, and a wait that would have hidden a fix.** The search
+button sets `window.location`, so the old page stays on screen for a moment after the click. The
+first fix waited for the exact URL the site builds, `'/products?search=' + term`, unencoded and
+untrimmed. That works today, but a fix of DEF-03 (trim) or DEF-04 (encode) changes that URL: the
+wait would time out, and the known-defect test would stay green forever. `search()` now waits for
+the next main-frame navigation and its `load` event, whatever the URL. Verified by simulating
+fixes of DEF-03, DEF-04 and DEF-05 in the browser: TC-SEARCH-008, 009 and 011 then report
+"expected to fail, but passed", while TC-SEARCH-001 stays green.
 
-**A wait that would have hidden a fix.** The first version of `search()` waited for the exact URL
-the site builds today: `'/products?search=' + term`, not encoded (DEF-04), e.g.
-`?search=Blue%20&%20Pink`. Once DEF-04 is fixed, the site sends `?search=Blue%20%26%20Pink`, the
-wait would time out, and the TC-SEARCH-009 `test.fail()` would stay green forever.
-`isSearchResultsUrl()` now accepts the current form and any correctly encoded one (`%20` or `+`).
-Verified by replacing the site's click handler in the browser with an encoding one: the search
-completes and the result assertion passes, which is exactly what makes `test.fail()` report the
-fix.
+**Cleanup stopped at the first failed deletion.** A network error or unexpected response while
+deleting one account aborted the loop, so later accounts were left behind. Each deletion now has
+its own error handling. Verified with controlled failures: a throwing deletion and an unexpected
+`responseCode` were both reported, and the real account tracked between them was deleted.
 
 **Search matches categories too.** "Every result contains the term" is false for `top`: two
 shirts match through their category _Tops & Shirts_. The tests use the real rule (name or
@@ -392,5 +412,10 @@ next run was green and the site was reachable.
 - **Not automated by design:** password policy (no requirement exists, OBS-01), visual layout,
   and login and account deletion as features of their own. See
   [Deliberately not automated](docs/test-cases/README.md#deliberately-not-automated).
+- **Known-defect tests can still fail for the wrong reason after `test.fail()` is called**, for
+  example if the site goes down mid-test or cleanup fails in teardown. The fix signal was
+  demonstrated for DEF-03, DEF-04 and DEF-05 only; DEF-01 and DEF-02 are server-side and could
+  not be simulated. See [the risk](docs/test-cases/README.md#the-risk-a-false-green).
+- **TC-SEARCH-006 checks a sample** of the results (default 5), not all of them.
 - **GitHub Pages shows only the latest `main` run.** Older reports are kept as artifacts for 14
   days.

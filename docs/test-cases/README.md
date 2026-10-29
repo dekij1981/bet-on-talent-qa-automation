@@ -12,7 +12,7 @@ The focus is on:
 - High-value user journeys
 - Negative and validation scenarios
 - Test independence and repeatability
-- Unique test data and guaranteed cleanup
+- Unique test data and cleanup after every test
 
 Every scenario was designed from hands-on exploration of the live application, using both the UI
 and its public API. Exploration also found **5 defects**, listed in
@@ -129,8 +129,9 @@ According to the Playwright documentation:
   fixed.
 - **If the test does not fail, Playwright reports it as a problem.** This is the signal that the
   defect has been fixed.
-- The recommended form is the declaration `test.fail(title, details, body)`. Calling
-  `test.fail()` inside the test body also works, but the declaration is preferred.
+- It can be declared for the whole test (`test.fail(title, details, body)`) or called inside the
+  body (`test.fail()`), which marks the test from that point on. This suite uses the body form,
+  after setup ([rule 2](#rules-for-writing-a-known-defect-test)).
 
 What that means for each run:
 
@@ -155,45 +156,54 @@ What that means for each run:
 1. **Assert the correct behaviour, not the bug.** The test reads like the requirement. For
    TC-SEARCH-007 it expects the cart to still show × 3 after entering −2. When the defect is fixed,
    the test already describes the right behaviour and only the `test.fail` marker is removed.
-2. **Use the declaration form**, as the documentation recommends:
-   `test.fail(title, details, body)`.
+2. **Activate the expectation only after setup.** Call `test.fail()` in the body once setup and
+   preconditions have passed. A failure before that line is an ordinary red failure. The
+   declaration form `test.fail(title, details, body)` would also accept a broken setup as the
+   expected failure, so it is not used.
 3. **Link the defect** with an annotation, so the HTML report shows which defect the test tracks:
    `annotation: { type: 'issue', description: 'DEF-02: …' }`.
 4. **Tag it** `@regression` and `@known-defect`, plus the feature tag. Known-defect tests are
    **never** in `@smoke`: the smoke suite must only contain tests that prove the core journeys work.
-5. **One defect per test, with as few steps as possible.** Every extra step is another way for the
-   test to fail for the wrong reason (see the next section).
+5. **One defect per test, with as few steps as possible after the marker.** Every extra step is
+   another way for the test to fail for the wrong reason (see the next section).
+6. **No step may depend on the defect.** A wait that only works while the bug exists breaks once
+   it is fixed, and the test then stays green forever. Example: waiting for the exact unencoded
+   search URL would time out after a fix of DEF-04, so the search helper waits for the next page
+   navigation instead. Likewise, TC-SEARCH-007 clicks "Add to cart" with `force`, so a fix that
+   disables the button counts as a rejection instead of stalling the click.
 
-Example (fixture and page-object names are illustrative):
+Example ([product-search.spec.ts](../../src/tests/product-search.spec.ts)):
 
 ```ts
-test.fail(
-  'TC-SEARCH-007 Quantity rejects negative values',
+test(
+  'TC-SEARCH-011 Pressing Enter submits the search',
   {
     tag: ['@regression', '@search', '@known-defect'],
-    annotation: { type: 'issue', description: 'DEF-02: negative quantity reduces the cart' },
+    annotation: { type: 'issue', description: 'DEF-05: Enter does not submit the search' },
   },
-  async ({ productPage, cartPage }) => {
-    await productPage.open('Blue Top');
-    await productPage.addToCart(3);
-    await productPage.addToCart(-2);
+  async ({ productsPage }) => {
+    await productsPage.open();
+    await productsPage.expectToBeLoaded(); // setup: a failure here is red
 
-    await cartPage.open();
-    // Correct behaviour. Today the cart shows 1, so this assertion fails as expected.
-    await expect(cartPage.quantityOf('Blue Top')).toHaveText('3');
+    test.fail(); // DEF-05 from here on
+    await productsPage.pressEnterToSearch(product.searchTerm);
+    await productsPage.expectSearchResults(); // correct behaviour; fails today
   },
 );
 ```
 
 ## The risk: a false green
 
-`test.fail()` is satisfied by **any** failure, not only by the defect. If a locator breaks, the
-page does not load, or a fixture throws, the test still fails — and is reported green. The test
-would then hide a broken test instead of tracking a defect.
+`test.fail()` is satisfied by **any** failure after it is called, not only by the defect. Three
+measures reduce that risk; none removes it completely.
 
-**How the suite guards against this:** every step a known-defect test relies on is also covered by
-an ordinary test that must pass. If shared code breaks, that ordinary test turns red, even though
-the known-defect test stays green.
+1. **Setup before the marker** (rule 2). Broken setup or a failed precondition is red.
+2. **No defect-dependent steps** (rule 6), so a real fix produces the "expected to fail, but
+   passed" signal.
+3. **Guard tests.** Every step a known-defect test relies on is also covered by an ordinary test.
+   If shared code breaks, the guard turns red. A green guard makes a wrong-reason failure less
+   likely, but it does not prove why the known-defect test failed: when reviewing, also check in
+   the report that it failed on its defect assertion.
 
 | Known-defect test                                | Defect | Steps it relies on                                                  | Guarded by                                                                                         |
 | ------------------------------------------------ | ------ | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
@@ -203,14 +213,27 @@ the known-defect test stays green.
 | [TC-SEARCH-009](product-search.md#tc-search-009) | DEF-04 | Search through the UI; compare result names                         | [TC-SEARCH-003](product-search.md#tc-search-003)                                                   |
 | [TC-SEARCH-011](product-search.md#tc-search-011) | DEF-05 | Type in the search field; read results heading                      | [TC-SEARCH-001](product-search.md#tc-search-001)                                                   |
 
-Rule for reviewers: **a known-defect test is only trustworthy while its guard test is green.** If a
-guard test is red, fix that first, then re-check the known-defect tests.
+**What was verified** (29 October 2026):
+
+| Situation                                                               | Result                                                                          |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Defects present                                                         | All 7 known-defect tests fail on their defect assertion (checked in the report) |
+| Broken setup (unknown product, no baseline results, no catalogue match) | TC-SEARCH-007, 008 and 009 are red, not "expected"                              |
+| Fixes of DEF-03, DEF-04 and DEF-05 simulated in the browser             | TC-SEARCH-008, 009 and 011 are red: "expected to fail, but passed"              |
+
+DEF-01 and DEF-02 are server-side and could not be simulated, so their fix signal is reasoned, not
+demonstrated.
+
+**Remaining limitations.** A failure that happens _after_ the marker for an unrelated reason (the
+site goes down mid-test, a locator in the asserted step breaks) is still accepted as expected.
+So is a failure in fixture teardown, such as a cleanup error, because it belongs to the same test
+result. The report's error message is the place to tell these apart.
 
 ## When a defect is fixed
 
 1. The known-defect test reports **"expected to fail, but passed"** and the run turns red.
 2. Confirm the fix by hand, using the steps to reproduce in [Defects](#defects).
-3. In the test, change `test.fail(` to `test(`, and remove the `@known-defect` tag and the `issue`
+3. In the test, remove the `test.fail()` line, the `@known-defect` tag and the `issue`
    annotation. No assertion needs to change, because the test already asserts the correct
    behaviour (rule 1).
 4. In this folder, change the test case's status from "Yes — known defect" to "Yes", and mark the
@@ -243,14 +266,19 @@ report doubles as a live list of open defects.
 - **Set up through the API, verify through the UI.** When a scenario is not about creating an
   account (for example "email already exists"), the precondition user is created with
   `POST /api/createAccount`. This is faster and less flaky than the UI.
-- **Guaranteed cleanup.** Every account created by a test is registered in a test fixture and
-  deleted with `DELETE /api/deleteAccount` after the test, **even when the test fails**. Cleanup
-  is not a test step, so a failure part-way through never leaves data behind. A "not found"
-  response is accepted, because some tests delete the account through the UI themselves.
+- **Cleanup in fixture teardown.** Every account a test builds or creates is registered with a
+  fixture _before_ it is created, and deleted with `DELETE /api/deleteAccount` after the test body,
+  whether the test passed or failed. Each account is attempted even if an earlier deletion fails,
+  and all failures are reported together. "Not found" is accepted: the account may never have
+  been created. Cleanup cannot run if the test process is killed, and it fails (visibly) if the
+  API is unavailable, so leftovers are possible in those cases; the run ID in the email traces
+  them back.
 - **API as an independent oracle.** `POST /api/searchProduct`, `GET /api/productsList` and
   `GET /api/getUserDetailByEmail` are used to check that the UI shows the right data.
-- **Expected values in data files.** Product name, price and availability are
-  read from a test-data file, not hard-coded in tests.
+- **Configurable test data.** The user profile, the main product and catalogue-dependent search
+  terms come from built-in defaults, an optional JSON file (`TEST_DATA_FILE`) and `PRODUCT_*`
+  environment variables. Inputs that _are_ the scenario (invalid emails, script payloads) stay in
+  the tests. See the main [README](../../README.md#test-data).
 
 ---
 
@@ -274,10 +302,10 @@ report doubles as a live list of open defects.
 | [TC-SEARCH-003](product-search.md#tc-search-003) Search using a partial product name               |    P1    | Yes                | `@regression` `@search`                       |
 | [TC-SEARCH-004](product-search.md#tc-search-004) Search is case-insensitive                        |    P1    | Yes                | `@regression` `@search`                       |
 | [TC-SEARCH-005](product-search.md#tc-search-005) Empty search returns all products                 |    P1    | Yes                | `@regression` `@search`                       |
-| [TC-SEARCH-006](product-search.md#tc-search-006) Every result opens a matching product page        |    P1    | Yes                | `@regression` `@search`                       |
+| [TC-SEARCH-006](product-search.md#tc-search-006) Search results open the matching product page     |    P1    | Yes                | `@regression` `@search`                       |
 | [TC-SEARCH-007](product-search.md#tc-search-007) Quantity rejects zero and negative values         |    P1    | Yes — known defect | `@regression` `@search` `@known-defect`       |
 | [TC-SEARCH-008](product-search.md#tc-search-008) Leading spaces are ignored                        |    P1    | Yes — known defect | `@regression` `@search` `@known-defect`       |
-| [TC-SEARCH-009](product-search.md#tc-search-009) Search terms containing `&` or `#`                |    P1    | Yes — known defect | `@regression` `@search` `@known-defect`       |
+| [TC-SEARCH-009](product-search.md#tc-search-009) Search terms containing `&`                       |    P1    | Yes — known defect | `@regression` `@search` `@known-defect`       |
 | [TC-SEARCH-010](product-search.md#tc-search-010) Script and SQL-like input is handled safely       |    P2    | Yes                | `@regression` `@search`                       |
 | [TC-SEARCH-011](product-search.md#tc-search-011) Pressing Enter submits the search                 |    P2    | Yes — known defect | `@regression` `@search` `@known-defect`       |
 
@@ -303,12 +331,22 @@ open a product → add it to the cart. They run on every commit as the smoke sui
 Every defect was reproduced at least twice through the UI (real typing and clicks), on
 29 October 2026. Test accounts used for reproduction were deleted afterwards.
 
+The brief does not specify these behaviours, so each expected result rests on a stated basis:
+
+| ID     | Observed behaviour                            | Expected behaviour and its basis                                                                                                                                                                                                  |
+| ------ | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DEF-01 | `USER@X.TEST` registers next to `user@x.test` | **Assumption.** Domains are case-insensitive by standard; the local part may legally be case-sensitive (RFC 5321), but common providers treat it as case-insensitive, so most sites normalise emails to avoid duplicate accounts. |
+| DEF-02 | Quantity `-2` / `0` reported as "Added!"      | **The site's own markup:** the input declares `min="1"`. A quantity below 1 has no meaning for a purchase.                                                                                                                        |
+| DEF-03 | Leading spaces return 0 results               | **Assumption.** Users paste text with stray spaces; trimming is common practice.                                                                                                                                                  |
+| DEF-04 | `&` cuts the term                             | **The site's own data:** the terms are parts of real product names, yet the search cannot find them.                                                                                                                              |
+| DEF-05 | Enter does nothing                            | **Assumption (UX convention).** Search fields on most sites submit on Enter.                                                                                                                                                      |
+
 | ID     | Severity | Summary                                                                 | Covered by                                       |
 | ------ | -------- | ----------------------------------------------------------------------- | ------------------------------------------------ |
 | DEF-01 | Major    | Duplicate-email check is case-sensitive, so a second account is created | [TC-REG-008](registration.md#tc-reg-008)         |
 | DEF-02 | Major    | Quantity `-2` reduces the cart; `0` shows a false "Added!" message      | [TC-SEARCH-007](product-search.md#tc-search-007) |
 | DEF-03 | Minor    | Leading spaces in the search term return no results                     | [TC-SEARCH-008](product-search.md#tc-search-008) |
-| DEF-04 | Major    | Search term is not URL-encoded, so `&` and `#` break the search         | [TC-SEARCH-009](product-search.md#tc-search-009) |
+| DEF-04 | Major    | Search term is not URL-encoded, so `&` (and `#`) cut the term           | [TC-SEARCH-009](product-search.md#tc-search-009) |
 | DEF-05 | Minor    | Pressing Enter does not submit the search                               | [TC-SEARCH-011](product-search.md#tc-search-011) |
 
 **DEF-01 — steps to reproduce**
@@ -352,6 +390,10 @@ Expected: 1 product each (both terms appear in real product names).
 Actual: 5 and 3 products, including unrelated ones such as Blue Top. The page builds the URL as
 `'/products?search=' + value` without encoding the value, so the term is cut at `&`.
 
+`#` is affected by the same mechanism (the rest becomes a URL fragment). This was observed once:
+`Blue Top#nothing` returned Blue Top instead of no results. It is not automated, because no
+product in the catalogue contains `#`, so there is no real-data case with a clear expected result.
+
 **DEF-05 — steps to reproduce**
 
 1. Click the search field, type `Blue Top` and press Enter.
@@ -379,7 +421,7 @@ Tests are independent and do not depend on execution order.
 
 Every test generates its own unique data, so the suite can run repeatedly and in parallel.
 
-Any account created by a test is deleted by a fixture after the test, whether it passed or failed.
+Every account a test creates is deleted in fixture teardown, whether the test passed or failed.
 
 Preconditions that are not the subject of the test are created through the API, not the UI.
 

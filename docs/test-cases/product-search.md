@@ -17,8 +17,9 @@ These rules were confirmed during exploration and are used as the test oracle:
 - Matching is **case-insensitive** and finds the term **anywhere** in the text.
 - It searches the product **name and category**, but not the brand. For example, `dress` also
   returns _Sleeves Top and Short - Blue & Pink_, whose category is _Dress_.
-- Because of this, "every result name contains the term" is only asserted for terms that match by
-  name. For any term, the UI results are compared with `POST /api/searchProduct`.
+- Because of this, "every result name contains the term" is not asserted. The UI results are
+  compared with `POST /api/searchProduct` for the same term, and every API result is checked
+  against the rule above.
 
 ## Summary
 
@@ -29,10 +30,10 @@ These rules were confirmed during exploration and are used as the test oracle:
 | [TC-SEARCH-003](#tc-search-003) | Search using a partial product name               |    P1    | Yes                | `@regression` `@search`                 |
 | [TC-SEARCH-004](#tc-search-004) | Search is case-insensitive                        |    P1    | Yes                | `@regression` `@search`                 |
 | [TC-SEARCH-005](#tc-search-005) | Empty search returns all products                 |    P1    | Yes                | `@regression` `@search`                 |
-| [TC-SEARCH-006](#tc-search-006) | Every result opens a matching product page        |    P1    | Yes                | `@regression` `@search`                 |
+| [TC-SEARCH-006](#tc-search-006) | Search results open the matching product page     |    P1    | Yes                | `@regression` `@search`                 |
 | [TC-SEARCH-007](#tc-search-007) | Quantity rejects zero and negative values         |    P1    | Yes — known defect | `@regression` `@search` `@known-defect` |
 | [TC-SEARCH-008](#tc-search-008) | Leading spaces are ignored                        |    P1    | Yes — known defect | `@regression` `@search` `@known-defect` |
-| [TC-SEARCH-009](#tc-search-009) | Search terms containing `&` or `#`                |    P1    | Yes — known defect | `@regression` `@search` `@known-defect` |
+| [TC-SEARCH-009](#tc-search-009) | Search terms containing `&`                       |    P1    | Yes — known defect | `@regression` `@search` `@known-defect` |
 | [TC-SEARCH-010](#tc-search-010) | Script and SQL-like input is handled safely       |    P2    | Yes                | `@regression` `@search`                 |
 | [TC-SEARCH-011](#tc-search-011) | Pressing Enter submits the search                 |    P2    | Yes — known defect | `@regression` `@search` `@known-defect` |
 
@@ -57,7 +58,8 @@ details, and add a chosen quantity to the cart. This is the main path from searc
 
 ### Test Data
 
-Read from the test-data file, not hard-coded in the test:
+From the test data configuration (built-in defaults shown; overridable with `TEST_DATA_FILE` or
+`PRODUCT_*` environment variables):
 
 | Field           | Value      |
 | --------------- | ---------- |
@@ -79,7 +81,8 @@ Read from the test-data file, not hard-coded in the test:
 
 - After step 2:
   - the heading **Searched Products** is visible
-  - every result name contains "blue top", ignoring case
+  - the result names are exactly those returned by `POST /api/searchProduct` for the term, and
+    each matches it by name or category
   - **Blue Top** is listed with price **Rs. 500**
 - After step 3:
   - the URL is `/product_details/<id>`
@@ -155,6 +158,8 @@ Users often type only one word.
 
 ### Test Data
 
+Default terms (configurable as `search.partialTerms`):
+
 | Run | Term    | Note                                                                       |
 | :-: | ------- | -------------------------------------------------------------------------- |
 |  1  | `top`   | 14 results; 2 match by category only (e.g. _Little Girls Mr. Panda Shirt_) |
@@ -196,7 +201,8 @@ Verify that letter case does not change the results.
 
 ### Test Data
 
-`blue top`, `BLUE TOP`, `bLuE tOp`
+Derived from the main search term: lower case, upper case and alternating case. For the default
+term `Blue Top`: `blue top`, `BLUE TOP`, `bLuE tOp`.
 
 ### Steps
 
@@ -236,26 +242,33 @@ Verify what happens when the user clicks search without typing anything.
 
 <a id="tc-search-006"></a>
 
-## TC-SEARCH-006 — Every result opens a matching product page
+## TC-SEARCH-006 — Search results open the matching product page
 
 Priority: P1  
 Automation: Yes  
 Tags: `@regression` `@search`  
-Why automated: Checks many links in one run; slow and boring manually
+Why automated: Checks several links in one run; slow and boring manually
 
 ### Objective
 
-Verify that every search result links to the right product. This catches broken links and wrong
-product IDs between the results list and the product page.
+Verify that search results link to the right product. This catches broken links and wrong product
+IDs between the results list and the product page.
 
 ### Test Data
 
-Search term: `top`
+Search term `top` and a sample of 5 results (both configurable).
 
 ### Steps
 
-1. Search for `top` and record the name and price of every result card.
-2. For each card, open **View Product**.
+1. Search for the term and record the name, price and link of every result card.
+2. Open the product page of an evenly spread sample of the cards: the first, the last and those in
+   between.
+
+### Notes
+
+A sample keeps the test's duration bounded as the catalogue grows: opening all 14 results took
+10–12 s, close to the 30 s test timeout when the site is slow. Spreading the sample over the list
+still catches a systematic ID mismatch, but a single broken link outside the sample can be missed.
 
 ### Expected Result
 
@@ -285,7 +298,7 @@ Verify that the quantity input does not accept values that make no sense for a p
 
 ### Preconditions
 
-- Blue Top with quantity 3 is in the cart.
+- The main product (default Blue Top) with quantity 3 is in the cart, verified in the cart.
 
 ### Steps
 
@@ -303,6 +316,19 @@ Verify that the quantity input does not accept values that make no sense for a p
 - `0`: the modal says **Added!**, but the cart does not change. The user gets a false success
   message.
 - `-2`: the modal says **Added!** and the cart is **reduced to Blue Top × 1, Rs. 500**.
+
+### Notes
+
+- "Rejected" is checked as: no **Added!** confirmation, and the cart unchanged. For `0` the cart is
+  already correct today, so without the confirmation check the test would pass and wrongly report
+  the defect as fixed.
+- A modal that is _not_ shown cannot be checked right after the click, because it appears only
+  after an AJAX call. The test first waits for jQuery's request counter to reach zero, which
+  happens only after the callback that would open the modal has run.
+- The confirmation check is soft, so for `-2` the report shows both symptoms.
+- The precondition (product × 3 in the cart) is verified in the cart before `test.fail()` is
+  called. "Add to cart" is clicked with `force`, so a fix that disables the button counts as a
+  rejection instead of stalling the click.
 
 ---
 
@@ -322,7 +348,7 @@ extra spaces.
 
 ### Test Data
 
-`"  Blue Top"` (two spaces before the term)
+The main search term with two leading spaces, by default `"  Blue Top"`.
 
 ### Steps
 
@@ -346,7 +372,7 @@ therefore uses leading spaces only.
 
 <a id="tc-search-009"></a>
 
-## TC-SEARCH-009 — Search terms containing `&` or `#`
+## TC-SEARCH-009 — Search terms containing `&`
 
 Priority: P1  
 Automation: Yes — known defect ([DEF-04](README.md#defects))  
@@ -358,6 +384,8 @@ Why automated: Documents DEF-04 and detects the fix
 Verify that special characters that appear in real product names are searched literally.
 
 ### Test Data
+
+Default terms (configurable as `search.ampersandTerms`):
 
 | Run | Term          | Real product containing it                             |
 | :-: | ------------- | ------------------------------------------------------ |
@@ -380,8 +408,12 @@ Verify that special characters that appear in real product names are searched li
 
 ### Notes
 
-Root cause: the page builds the URL as `'/products?search=' + value` without encoding the value.
-The term is cut at `&` or `#`.
+Root cause: the page builds the URL as `'/products?search=' + value` without encoding the value,
+so the term is cut at `&`. The terms are configurable; each must appear in exactly one product name
+or category, which the test checks before searching.
+
+`#` is affected by the same mechanism and was observed once, but it is not automated: no catalogue
+product contains `#`, so there is no real-data case (see [DEF-04](README.md#defects)).
 
 ---
 
@@ -426,7 +458,8 @@ Why automated: Documents DEF-05 and detects the fix
 
 ### Objective
 
-Verify that the search can be submitted with the keyboard, as on most websites.
+Verify that the search can be submitted with the keyboard. This is an **assumed requirement**
+(a common UX convention), not one from the brief.
 
 ### Steps
 
