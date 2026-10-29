@@ -63,7 +63,8 @@ Two further choices follow from these rules:
   emails) are one parameterised test, which makes them cheap to automate.
 - **Known defects are automated too.** The test asserts the *correct* behaviour and is marked
   `test.fail()`. The suite stays green today and reports when the defect is fixed. This keeps the
-  defect visible in the report instead of in a forgotten ticket.
+  defect visible in the report instead of in a forgotten ticket. See
+  [How Known Defects Are Automated](#how-known-defects-are-automated) for the full approach.
 
 Each test case states its reason in a **Why automated** or **Why manual** line.
 
@@ -98,6 +99,141 @@ npx playwright test --grep-invert @known-defect      # everything except known d
 ```
 
 ---
+
+# How Known Defects Are Automated
+
+Exploration found five defects ([DEF-01 to DEF-05](#defects)). Each one has an automated test
+that is marked with Playwright's `test.fail()`. This section explains why, how those tests are
+written, what the risks are, and what happens when a defect is fixed.
+
+## The problem
+
+A test for a known defect fails today, and will keep failing until the application is fixed. That
+leaves three bad options:
+
+- Leave it **red**: the suite is always red, people stop looking at it, and real regressions get
+  lost in the noise.
+- **Skip** it: the suite is green, but nobody notices when the defect is fixed, or when it gets
+  worse.
+- **Don't automate** it: the defect lives only in a ticket and is forgotten.
+
+`test.fail()` solves this: the suite stays green, the test still runs every time, and the suite
+reports the moment the behaviour changes.
+
+## What `test.fail()` does
+
+According to the Playwright documentation:
+
+- It marks a test as "should fail". Playwright **runs the test and checks that it actually fails**.
+- Its purpose is documentation: to acknowledge that some functionality is broken until it is
+  fixed.
+- **If the test does not fail, Playwright reports it as a problem.** This is the signal that the
+  defect has been fixed.
+- The recommended form is the declaration `test.fail(title, details, body)`. Calling
+  `test.fail()` inside the test body also works, but the declaration is preferred.
+
+What that means for each run:
+
+| Application behaviour | Test result | Report |
+| --- | --- | --- |
+| Defect still present (assertion fails) | Expected failure | Green, with the `issue` annotation |
+| Defect fixed (assertion passes) | Unexpected pass | **Red** — "expected to fail, but passed" |
+
+## Options considered
+
+| Option | What happens | Decision |
+| --- | --- | --- |
+| `test.fail()` | Runs every time; green while the defect exists; red when it is fixed. | **Chosen** |
+| `test.skip()` | Never runs. The docs describe it for tests that are irrelevant in a configuration, not for known defects. | Rejected: a fix or a change in the defect goes unnoticed |
+| `test.fixme()` | Never runs. The docs describe it for tests that are slow or crash. | Rejected: same as skip |
+| Assert the buggy behaviour ("characterisation test") | Green today, e.g. asserts the cart shows × 1 after adding −2. | Rejected: the code then claims the bug is *expected*; when the bug is fixed the test fails and looks like a regression |
+| Keep the test failing (red) | Suite is permanently red. | Rejected: hides real regressions |
+| Don't automate | Defect only in this document. | Rejected: no signal when it changes |
+
+## Rules for writing a known-defect test
+
+1. **Assert the correct behaviour, not the bug.** The test reads like the requirement. For
+   TC-SEARCH-007 it expects the cart to still show × 3 after entering −2. When the defect is fixed,
+   the test already describes the right behaviour and only the `test.fail` marker is removed.
+2. **Use the declaration form**, as the documentation recommends:
+   `test.fail(title, details, body)`.
+3. **Link the defect** with an annotation, so the HTML report shows which defect the test tracks:
+   `annotation: { type: 'issue', description: 'DEF-02: …' }`.
+4. **Tag it** `@regression` and `@known-defect`, plus the feature tag. Known-defect tests are
+   **never** in `@smoke`: the smoke suite must only contain tests that prove the core journeys work.
+5. **One defect per test, with as few steps as possible.** Every extra step is another way for the
+   test to fail for the wrong reason (see the next section).
+
+Example (fixture and page-object names are illustrative):
+
+```ts
+test.fail(
+  'TC-SEARCH-007 Quantity rejects negative values',
+  {
+    tag: ['@regression', '@search', '@known-defect'],
+    annotation: { type: 'issue', description: 'DEF-02: negative quantity reduces the cart' },
+  },
+  async ({ productPage, cartPage }) => {
+    await productPage.open('Blue Top');
+    await productPage.addToCart(3);
+    await productPage.addToCart(-2);
+
+    await cartPage.open();
+    // Correct behaviour. Today the cart shows 1, so this assertion fails as expected.
+    await expect(cartPage.quantityOf('Blue Top')).toHaveText('3');
+  },
+);
+```
+
+## The risk: a false green
+
+`test.fail()` is satisfied by **any** failure, not only by the defect. If a locator breaks, the
+page does not load, or a fixture throws, the test still fails — and is reported green. The test
+would then hide a broken test instead of tracking a defect.
+
+**How the suite guards against this:** every step a known-defect test relies on is also covered by
+an ordinary test that must pass. If shared code breaks, that ordinary test turns red, even though
+the known-defect test stays green.
+
+| Known-defect test | Defect | Steps it relies on | Guarded by |
+| --- | --- | --- | --- |
+| [TC-REG-008](registration.md#tc-reg-008) | DEF-01 | Create a user through the API; signup form; duplicate-email message | [TC-REG-002](registration.md#tc-reg-002) |
+| [TC-SEARCH-007](product-search.md#tc-search-007) | DEF-02 | Open product page; set quantity; Add to cart; read cart | [TC-SEARCH-001](product-search.md#tc-search-001) |
+| [TC-SEARCH-008](product-search.md#tc-search-008) | DEF-03 | Search through the UI; read results | [TC-SEARCH-001](product-search.md#tc-search-001), [TC-SEARCH-004](product-search.md#tc-search-004) |
+| [TC-SEARCH-009](product-search.md#tc-search-009) | DEF-04 | Search through the UI; compare result names | [TC-SEARCH-003](product-search.md#tc-search-003) |
+| [TC-SEARCH-011](product-search.md#tc-search-011) | DEF-05 | Type in the search field; read results heading | [TC-SEARCH-001](product-search.md#tc-search-001) |
+
+Rule for reviewers: **a known-defect test is only trustworthy while its guard test is green.** If a
+guard test is red, fix that first, then re-check the known-defect tests.
+
+## When a defect is fixed
+
+1. The known-defect test reports **"expected to fail, but passed"** and the run turns red.
+2. Confirm the fix by hand, using the steps to reproduce in [Defects](#defects).
+3. In the test, change `test.fail(` to `test(`, and remove the `@known-defect` tag and the `issue`
+   annotation. No assertion needs to change, because the test already asserts the correct
+   behaviour (rule 1).
+4. In this folder, change the test case's status from "Yes — known defect" to "Yes", and mark the
+   defect as fixed in the [Defects](#defects) table.
+
+If the defect changes but is still wrong (for example −2 now empties the cart instead of reducing
+it), the assertion still fails, the test stays green, and nothing needs to change.
+
+## Running known-defect tests
+
+```bash
+npx playwright test --grep @known-defect          # only the known-defect tests
+npx playwright test --grep-invert @known-defect   # everything except them
+npx playwright test --grep @smoke                 # never includes them
+```
+
+In the HTML report, each known-defect test shows its `issue` annotation with the defect ID, so the
+report doubles as a live list of open defects.
+
+## References
+
+- [Playwright documentation — `test.fail`](https://playwright.dev/docs/api/class-test#test-fail)
+- [Playwright documentation — Annotations](https://playwright.dev/docs/test-annotations)
 
 # Test Data and Cleanup Strategy
 
