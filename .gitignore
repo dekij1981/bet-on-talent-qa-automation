@@ -15,9 +15,7 @@ node_modules/
 /playwright/.local-browsers/
 /playwright/.cache/
 
-# Block test reports generated in the root or custom folders
-*.xml
-*.html
+/reports/
 /playwright-coverage/
 
 # ==========================================
