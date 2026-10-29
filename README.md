@@ -265,6 +265,8 @@ brief and are deliberately out of scope.
 | Full suite, 3 × `--repeat-each=3` (360 executions) | PR #1        | 352 passed; all 8 failures fell in two short windows when the public site degraded (HTTP 503, page loads not finishing within 30 s, passing tests 4–6× slower in the same minutes) |
 | Fresh clone of `main`, no `.env`                   | PR #1        | 40 passed                                                                                                                                                                          |
 | CI full suite (pull request)                       | PR #1        | 40 passed in about 1 min                                                                                                                                                           |
+| Full suite, 3 × `--repeat-each=3` (360 executions) | PR #3        | 360 passed, no failures and no flaky tests; 3.7–3.8 min per batch of 120, 2 workers                                                                                                |
+| CI full suite (pull request)                       | PR #3        | Passed; the test step took 72 s                                                                                                                                                    |
 
 No failure was traced to test logic, so timeouts were not raised: that would only hide an
 unavailable site. Retries exist in CI as a safety net.
@@ -307,6 +309,10 @@ quality (typecheck, lint, format) ──▶ test (Chromium) ──▶ deploy-rep
 | Nightly (03:00 UTC)          | Quality checks → full suite                                   |
 | Manual (`workflow_dispatch`) | Quality checks → optional `grep` filter (full suite if empty) |
 
+To run the full suite in CI on demand: **Actions → Playwright tests → Run workflow**, pick the
+branch, leave `grep` empty and start the run. A value such as `@search` or `TC-REG-001` runs only
+the matching tests.
+
 - `quality` runs first and fails fast, before any browser is installed.
 - npm dependencies are cached by `actions/setup-node`; Chromium is installed with OS
   dependencies.
@@ -329,6 +335,9 @@ quality (typecheck, lint, format) ──▶ test (Chromium) ──▶ deploy-rep
 Only `main` publishes to GitHub Pages, so the public report always reflects the `main` branch.
 Branches and pull requests still get the full HTML report as a downloadable artifact on every
 run.
+
+Pages shows the **latest** `main` run, whatever its scope. Right after a merge that is the
+`@smoke` run triggered by the push; the nightly or a manual run replaces it with the full suite.
 
 To set this up in a fork: **Settings → Pages → Source: GitHub Actions**.
 
