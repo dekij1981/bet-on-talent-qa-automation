@@ -61,6 +61,17 @@ export class ProductDetailsPage {
     await this.addToCartButton.click();
   }
 
+  /**
+   * Waits until the add-to-cart AJAX call and its success callback have finished.
+   * jQuery increments `active` synchronously in the click handler and decrements it only after
+   * the callbacks ran, so afterwards "the modal is hidden" is a deterministic check.
+   */
+  async waitForCartRequests(): Promise<void> {
+    await this.page.waitForFunction(
+      () => (window as unknown as { jQuery: { active: number } }).jQuery.active === 0,
+    );
+  }
+
   async expectAddedModal(): Promise<void> {
     await expect(this.addedHeading).toBeVisible();
     await expect(this.viewCartLink).toBeVisible();

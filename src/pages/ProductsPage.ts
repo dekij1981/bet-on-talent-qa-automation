@@ -1,4 +1,4 @@
-import { expect, type Locator, type Page } from '@playwright/test';
+import { expect, type Locator, type Page, type Response } from '@playwright/test';
 
 export class ProductsPage {
   readonly page: Page;
@@ -38,14 +38,19 @@ export class ProductsPage {
     await expect(this.allProductsHeading).toBeVisible();
   }
 
-  async search(term: string): Promise<void> {
-    await this.searchInput.fill(term);
-    await this.searchButton.click();
-
+  /** Searches through the UI and returns the response of the results page. */
+  async search(term: string): Promise<Response> {
     // The click handler does window.location = '/products?search=' + term. Waiting for that
     // exact URL (and its load event) prevents reading the previous page's results.
     const expectedUrl = new URL(`/products?search=${term}`, this.page.url()).href;
+    const response = this.page.waitForResponse(
+      (res) => res.url() === expectedUrl && res.request().isNavigationRequest(),
+    );
+
+    await this.searchInput.fill(term);
+    await this.searchButton.click();
     await this.page.waitForURL((url) => url.href === expectedUrl);
+    return response;
   }
 
   async pressEnterToSearch(term: string): Promise<void> {
@@ -61,6 +66,17 @@ export class ProductsPage {
 
   async resultNameList(): Promise<string[]> {
     return (await this.resultNames.allTextContents()).map((name) => name.trim());
+  }
+
+  /** Name, price and link of every result card, read once the results page has loaded. */
+  async resultCardsSummary(): Promise<{ name: string; price: string; href: string }[]> {
+    return this.resultCards.evaluateAll((cards) =>
+      cards.map((card) => ({
+        name: card.querySelector('.productinfo p')?.textContent?.trim() ?? '',
+        price: card.querySelector('.productinfo h2')?.textContent?.trim() ?? '',
+        href: card.querySelector('a[href^="/product_details/"]')?.getAttribute('href') ?? '',
+      })),
+    );
   }
 
   async expectSearchResults(): Promise<void> {
