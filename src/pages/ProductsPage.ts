@@ -58,5 +58,9 @@ export class ProductsPage {
         name: 'View Product',
       })
       .click();
+
+    // waitForURL waits for the load event: cart.js binds "Add to cart" at the end of <body>,
+    // so clicking it before load does nothing.
+    await this.page.waitForURL(/\/product_details\/\d+$/);
   }
 }
