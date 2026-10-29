@@ -9,7 +9,7 @@ import type { UserData } from '../data/users';
  * `responseCode` in the JSON body, so that is what every method checks.
  */
 
-type ApiBody = { responseCode: number; message?: string };
+export type ApiBody = { responseCode: number; message?: string };
 
 export type ApiProduct = {
   id: number;

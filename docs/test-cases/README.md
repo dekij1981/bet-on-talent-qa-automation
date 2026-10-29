@@ -268,10 +268,11 @@ report doubles as a live list of open defects.
   `POST /api/createAccount`. This is faster and less flaky than the UI.
 - **Cleanup in fixture teardown.** Every account a test builds or creates is registered with a
   fixture _before_ it is created, and deleted with `DELETE /api/deleteAccount` after the test body,
-  whether the test passed or failed. Each account is attempted even if an earlier deletion fails,
-  and all failures are reported together. "Not found" is accepted: the account may never have
+  whether the test passed or failed. A failed call (network error, server error) is retried once.
+  Each account is attempted even if an earlier deletion fails, and all failures are reported
+  together. "Not found" is accepted: the account may never have
   been created. Cleanup cannot run if the test process is killed, and it fails (visibly) if the
-  API is unavailable, so leftovers are possible in those cases; the run ID in the email traces
+  API stays unavailable, so leftovers are possible in those cases; the run ID in the email traces
   them back.
 - **API as an independent oracle.** `POST /api/searchProduct`, `GET /api/productsList` and
   `GET /api/getUserDetailByEmail` are used to check that the UI shows the right data.

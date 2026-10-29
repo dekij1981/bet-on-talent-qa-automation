@@ -245,12 +245,13 @@ brief and are deliberately out of scope.
   (for example "email already exists"), the account is created through `POST /api/createAccount`.
 - **Cleanup in fixture teardown.** `userFactory` registers every account _before_ it is created,
   so an account whose creation outcome is unknown is still covered. After the test body, passed
-  or failed, teardown deletes each one through `DELETE /api/deleteAccount`, with a 10 s limit per
-  request and its own 30 s budget, so it also runs after a test timeout. Every account is
-  attempted even if an earlier one fails; failures are reported together (emails only, no
-  passwords) and fail the test. `404` is accepted: the account may never have been created.
-  Cleanup cannot run if the process is killed, and fails visibly if the API is down; the run ID
-  in the email identifies any leftovers.
+  or failed, teardown deletes each one through `DELETE /api/deleteAccount`. A call that fails
+  (network error, 5xx, non-JSON) is retried once after a 1 s pause; this is safe because a
+  repeated delete answers `404`, which is accepted. Each call has a 10 s limit and cleanup has its
+  own 45 s budget, so it also runs after a test timeout. Every account is attempted even if an
+  earlier one fails; failures are reported together (emails only, no passwords) and fail the
+  test. Cleanup cannot run if the process is killed, and fails visibly if the API stays down;
+  the run ID in the email identifies any leftovers.
 - **Real API status.** The API answers HTTP 200 for everything, including errors
   ([OBS-03](docs/test-cases/README.md#observations)), so `ApiClient` checks `responseCode` in the
   JSON body. A non-2xx status, or an HTML page instead of JSON, is reported as a server failure

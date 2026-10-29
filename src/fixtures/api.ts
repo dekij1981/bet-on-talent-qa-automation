@@ -1,6 +1,6 @@
 import { expect, test as base } from '@playwright/test';
 
-import { ApiClient } from '../api/ApiClient';
+import { ApiClient, type ApiBody } from '../api/ApiClient';
 import { buildUser, type UserData } from '../data/users';
 
 export type UserFactory = {
@@ -11,6 +11,24 @@ export type UserFactory = {
   /** Registers an extra account for cleanup (e.g. a duplicate the application should not create). */
   track(email: string, password: string): void;
 };
+
+/**
+ * Deletes an account, retrying once after a short pause if the call throws (network error,
+ * 5xx, non-JSON body). DELETE is idempotent: if the first call succeeded but its response was
+ * lost, the retry answers 404, which cleanup accepts. Business responses are not retried.
+ */
+async function deleteWithOneRetry(
+  apiClient: ApiClient,
+  email: string,
+  password: string,
+): Promise<ApiBody> {
+  try {
+    return await apiClient.deleteAccount(email, password);
+  } catch {
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+    return apiClient.deleteAccount(email, password);
+  }
+}
 
 type ApiFixtures = {
   apiClient: ApiClient;
@@ -47,12 +65,12 @@ export const test = base.extend<ApiFixtures>({
       await use(factory);
 
       // Teardown runs after the test body, passed or failed. Every account is attempted even if
-      // an earlier deletion throws; failures are reported together at the end (no passwords).
+      // an earlier deletion fails; failures are reported together at the end (no passwords).
       // 404 is accepted: the account was never created, or the test deleted it itself.
       const failures: string[] = [];
       for (const { email, password } of tracked) {
         try {
-          const body = await apiClient.deleteAccount(email, password);
+          const body = await deleteWithOneRetry(apiClient, email, password);
           if (body.responseCode !== 200 && body.responseCode !== 404) {
             failures.push(`${email}: responseCode ${body.responseCode} ${body.message ?? ''}`);
           }
@@ -62,7 +80,8 @@ export const test = base.extend<ApiFixtures>({
       }
       expect(failures, 'Test accounts that could not be deleted').toEqual([]);
     },
-    // Own time budget, so cleanup is still attempted after the test itself timed out.
-    { timeout: 30_000 },
+    // Own time budget (two 10 s attempts per account fit), so cleanup is still attempted after
+    // the test itself timed out.
+    { timeout: 45_000 },
   ],
 });
