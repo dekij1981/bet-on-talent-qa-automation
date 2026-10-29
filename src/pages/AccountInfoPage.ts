@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
-import type { UserData } from '../data/user';
+import type { UserData } from '../data/users';
 
 export class AccountInfoPage {
   readonly page: Page;
@@ -81,9 +81,9 @@ export class AccountInfoPage {
 
     await this.passwordInput.fill(user.password);
 
-    await this.daySelect.selectOption(user.day);
-    await this.monthSelect.selectOption(user.month);
-    await this.yearSelect.selectOption(user.year);
+    await this.daySelect.selectOption(user.birthDay);
+    await this.monthSelect.selectOption(user.birthMonth);
+    await this.yearSelect.selectOption(user.birthYear);
 
     await this.newsletterCheckbox.check();
     await this.specialOffersCheckbox.check();
