@@ -284,6 +284,10 @@ quality (typecheck, lint, format) ──▶ test (Chromium) ──▶ deploy-rep
   <https://dekij1981.github.io/bet-on-talent-qa-automation/>. Failed runs are published too,
   since that is when the report matters most.
 
+Only `main` publishes to GitHub Pages, so the public report always reflects the `main` branch.
+Branches and pull requests still get the full HTML report as a downloadable artifact on every
+run.
+
 One-time repository setup: **Settings → Pages → Source: GitHub Actions**.
 
 ## Technical decisions and trade-offs
