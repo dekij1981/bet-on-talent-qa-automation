@@ -62,6 +62,16 @@ export class ProductDetailsPage {
   }
 
   /**
+   * Clicks Add to cart even if the button is disabled. Used with invalid quantities: a fix that
+   * disables the button must count as "rejected", not stall the test on actionability checks.
+   * A disabled button fires no click, so nothing is added.
+   */
+  async attemptAddToCart(): Promise<void> {
+    // eslint-disable-next-line playwright/no-force-option -- intentional, see above
+    await this.addToCartButton.click({ force: true });
+  }
+
+  /**
    * Waits until the add-to-cart AJAX call and its success callback have finished.
    * jQuery increments `active` synchronously in the click handler and decrements it only after
    * the callbacks ran, so afterwards "the modal is hidden" is a deterministic check.

@@ -156,7 +156,7 @@ test.describe('User registration', () => {
     );
   }
 
-  test.fail(
+  test(
     'TC-REG-008 Registered email in different letter case',
     {
       tag: ['@regression', '@registration', '@known-defect'],
@@ -170,8 +170,10 @@ test.describe('User registration', () => {
       const upperCaseEmail = existing.email.toUpperCase();
       // If the defect lets the signup through, the duplicate account must be cleaned up too.
       userFactory.track(upperCaseEmail, existing.password);
-
       await signupLoginPage.open();
+      await signupLoginPage.expectToBeLoaded();
+
+      test.fail(); // DEF-01 from here on (setup above must pass)
       await signupLoginPage.startSignup(existing.name, upperCaseEmail);
 
       // Correct behaviour. Today the account form opens instead, so this fails as expected.
