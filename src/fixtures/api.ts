@@ -1,6 +1,6 @@
 import { expect, test as base } from '@playwright/test';
 
-import { ApiClient } from '../api/ApiClient';
+import { ApiClient, type ApiBody } from '../api/ApiClient';
 import { buildUser, type UserData } from '../data/users';
 
 export type UserFactory = {
@@ -12,6 +12,24 @@ export type UserFactory = {
   track(email: string, password: string): void;
 };
 
+/**
+ * Deletes an account, retrying once after a short pause if the call throws (network error,
+ * 5xx, non-JSON body). DELETE is idempotent: if the first call succeeded but its response was
+ * lost, the retry answers 404, which cleanup accepts. Business responses are not retried.
+ */
+async function deleteWithOneRetry(
+  apiClient: ApiClient,
+  email: string,
+  password: string,
+): Promise<ApiBody> {
+  try {
+    return await apiClient.deleteAccount(email, password);
+  } catch {
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+    return apiClient.deleteAccount(email, password);
+  }
+}
+
 type ApiFixtures = {
   apiClient: ApiClient;
   userFactory: UserFactory;
@@ -22,36 +40,48 @@ export const test = base.extend<ApiFixtures>({
     await use(new ApiClient(request));
   },
 
-  userFactory: async ({ apiClient }, use, testInfo) => {
-    const created: { email: string; password: string }[] = [];
+  userFactory: [
+    async ({ apiClient }, use, testInfo) => {
+      // Tracked before creation, so an account whose creation outcome is unknown (timeout,
+      // crash mid-signup) is still deleted.
+      const tracked: { email: string; password: string }[] = [];
 
-    const factory: UserFactory = {
-      build(overrides) {
-        const user = buildUser(testInfo.workerIndex, overrides);
-        created.push({ email: user.email, password: user.password });
-        return user;
-      },
-      async createViaApi(overrides) {
-        const user = factory.build(overrides);
-        await apiClient.createAccount(user);
-        return user;
-      },
-      track(email, password) {
-        created.push({ email, password });
-      },
-    };
+      const factory: UserFactory = {
+        build(overrides) {
+          const user = buildUser(testInfo.workerIndex, overrides);
+          tracked.push({ email: user.email, password: user.password });
+          return user;
+        },
+        async createViaApi(overrides) {
+          const user = factory.build(overrides);
+          await apiClient.createAccount(user);
+          return user;
+        },
+        track(email, password) {
+          tracked.push({ email, password });
+        },
+      };
 
-    await use(factory);
+      await use(factory);
 
-    // Teardown runs after the test, whether it passed or failed.
-    // 404 is accepted: the account was never created, or the test deleted it itself.
-    const failures: string[] = [];
-    for (const { email, password } of created) {
-      const body = await apiClient.deleteAccount(email, password);
-      if (body.responseCode !== 200 && body.responseCode !== 404) {
-        failures.push(`${email}: ${body.responseCode} ${body.message}`);
+      // Teardown runs after the test body, passed or failed. Every account is attempted even if
+      // an earlier deletion fails; failures are reported together at the end (no passwords).
+      // 404 is accepted: the account was never created, or the test deleted it itself.
+      const failures: string[] = [];
+      for (const { email, password } of tracked) {
+        try {
+          const body = await deleteWithOneRetry(apiClient, email, password);
+          if (body.responseCode !== 200 && body.responseCode !== 404) {
+            failures.push(`${email}: responseCode ${body.responseCode} ${body.message ?? ''}`);
+          }
+        } catch (error) {
+          failures.push(`${email}: ${error instanceof Error ? error.message : String(error)}`);
+        }
       }
-    }
-    expect(failures, 'Test accounts that could not be deleted').toEqual([]);
-  },
+      expect(failures, 'Test accounts that could not be deleted').toEqual([]);
+    },
+    // Own time budget (two 10 s attempts per account fit), so cleanup is still attempted after
+    // the test itself timed out.
+    { timeout: 45_000 },
+  ],
 });

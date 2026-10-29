@@ -1,4 +1,4 @@
-import { readInt, readString } from '../config/env';
+import { testData } from './test-data';
 
 export type ProductExpectation = {
   searchTerm: string;
@@ -8,14 +8,23 @@ export type ProductExpectation = {
   quantity: number;
 };
 
-/** Main search-to-cart product. Every value can be overridden through .env. */
-export const primaryProduct: ProductExpectation = {
-  searchTerm: readString('PRODUCT_SEARCH_TERM', 'Blue Top'),
-  name: readString('PRODUCT_NAME', 'Blue Top'),
-  price: readString('PRODUCT_PRICE', 'Rs. 500'),
-  availability: readString('PRODUCT_AVAILABILITY', 'In Stock'),
-  quantity: readInt('PRODUCT_QUANTITY', 3, 1),
-};
+/** Main search-to-cart product (test data file and PRODUCT_* env vars, see test-data.ts). */
+export const primaryProduct: ProductExpectation = testData.product;
+
+/** Catalogue-dependent search inputs (test data file, see test-data.ts). */
+export const searchData = testData.search;
+
+/** Case variants of a term, e.g. "Blue Top" → "blue top", "BLUE TOP", "bLuE tOp". */
+export function caseVariants(term: string): string[] {
+  let letter = 0;
+  const alternating = [...term]
+    .map((char) => {
+      if (char.toLowerCase() === char.toUpperCase()) return char;
+      return letter++ % 2 === 0 ? char.toLowerCase() : char.toUpperCase();
+    })
+    .join('');
+  return [...new Set([term.toLowerCase(), term.toUpperCase(), alternating])];
+}
 
 /** "Rs. 500" → 500 */
 export function parsePrice(price: string): number {

@@ -1,17 +1,5 @@
 import { expect, type Locator, type Page, type Response } from '@playwright/test';
 
-/**
- * True when `url` is the results page for `term`, in either form:
- * - what the site builds today: '/products?search=' + term, not encoded (DEF-04);
- * - any correctly encoded form (%20 or +), so a fix of DEF-04 is still recognised and
- *   TC-SEARCH-009 reports it instead of timing out here.
- */
-export function isSearchResultsUrl(url: URL, term: string): boolean {
-  if (url.pathname !== '/products') return false;
-  const asBuiltBySite = new URL(`/products?search=${term}`, url).search;
-  return url.search === asBuiltBySite || url.searchParams.get('search') === term;
-}
-
 export class ProductsPage {
   readonly page: Page;
   readonly allProductsHeading: Locator;
@@ -50,18 +38,27 @@ export class ProductsPage {
     await expect(this.allProductsHeading).toBeVisible();
   }
 
-  /** Searches through the UI and returns the response of the results page. */
+  /**
+   * Searches through the UI and returns the response of the results page.
+   *
+   * Waits for the next main-frame navigation and its load event, whatever the new URL is. The
+   * site builds the URL itself (unencoded, untrimmed: DEF-03, DEF-04), so a fix that changes the
+   * URL must still reach the result assertions instead of timing out here. Both waits are
+   * registered before the click, so the previous page is never mistaken for the result.
+   */
   async search(term: string): Promise<Response> {
-    const isResultsFor = (url: URL) => isSearchResultsUrl(url, term);
-    const response = this.page.waitForResponse(
-      (res) => res.request().isNavigationRequest() && isResultsFor(new URL(res.url())),
-    );
-
+    const mainFrame = this.page.mainFrame();
     await this.searchInput.fill(term);
-    await this.searchButton.click();
-    // Waiting for this term's results URL (and its load event) prevents reading the
-    // previous page's results.
-    await this.page.waitForURL(isResultsFor);
+
+    // One Promise.all: if the click fails, no pending wait is left unhandled.
+    const [response] = await Promise.all([
+      this.page.waitForResponse(
+        (res) => res.request().isNavigationRequest() && res.frame() === mainFrame,
+      ),
+      this.page.waitForEvent('framenavigated', { predicate: (frame) => frame === mainFrame }),
+      this.searchButton.click(),
+    ]);
+    await this.page.waitForLoadState('load');
     return response;
   }
 
@@ -98,14 +95,6 @@ export class ProductsPage {
   async expectProductInResults(name: string, price: string): Promise<void> {
     await expect(this.card(name)).toBeVisible();
     await expect(this.card(name).locator('.productinfo h2')).toHaveText(price);
-  }
-
-  /** Every result name contains the term, ignoring case. */
-  async expectAllNamesContain(term: string): Promise<void> {
-    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const count = await this.resultNames.count();
-    expect(count, `results for "${term}"`).toBeGreaterThan(0);
-    await expect(this.resultNames).toHaveText(Array(count).fill(new RegExp(escaped, 'i')));
   }
 
   async openProduct(name: string): Promise<void> {

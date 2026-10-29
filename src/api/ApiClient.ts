@@ -9,7 +9,7 @@ import type { UserData } from '../data/users';
  * `responseCode` in the JSON body, so that is what every method checks.
  */
 
-type ApiBody = { responseCode: number; message?: string };
+export type ApiBody = { responseCode: number; message?: string };
 
 export type ApiProduct = {
   id: number;
@@ -71,10 +71,16 @@ export class ApiClient {
     expect(body.responseCode, `createAccount ${user.email}: ${body.message}`).toBe(201);
   }
 
-  /** Returns the body; 200 = deleted, 404 = not found. The caller decides what is acceptable. */
-  async deleteAccount(email: string, password: string): Promise<ApiBody> {
+  /**
+   * Returns the body; 200 = deleted, 404 = not found. The caller decides what is acceptable.
+   * Throws on a network error, timeout, non-2xx status or non-JSON body.
+   */
+  async deleteAccount(email: string, password: string, timeoutMs = 10_000): Promise<ApiBody> {
     return this.parse(
-      await this.request.delete('/api/deleteAccount', { form: { email, password } }),
+      await this.request.delete('/api/deleteAccount', {
+        form: { email, password },
+        timeout: timeoutMs,
+      }),
     );
   }
 
