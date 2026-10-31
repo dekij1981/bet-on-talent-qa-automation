@@ -11,7 +11,7 @@ End-to-end tests for user registration and product search on
 | Automated        | 22 of 22 designed cases → 40 tests (data-driven cases run once per data row)                   |
 | Smoke (`@smoke`) | 4 tests, all P0 journeys, under 30 s                                                           |
 | Full suite       | 40 tests, about 1.5 min locally and 1 min in CI, with 2 workers                                |
-| Known defects    | 5 found during exploration, tracked by 7 `test.fail()` tests                                   |
+| Known defects    | 5 found during exploration, tracked by 7 symptom-assertion tests                               |
 | Latest report    | <https://dekij1981.github.io/bet-on-talent-qa-automation/> (from `main`)                       |
 
 ## Contents
@@ -78,7 +78,7 @@ Each test has exactly one of `@smoke` or `@regression`, plus one feature tag.
 | `@smoke`                   | All P0 cases. Runs on every push.                                      |
 | `@regression`              | All other automated cases (P1, P2). Runs on pull requests and nightly. |
 | `@registration`, `@search` | Feature                                                                |
-| `@known-defect`            | Documents an open defect with `test.fail()`. Never in `@smoke`.        |
+| `@known-defect`            | Asserts the symptom of an open defect. Never in `@smoke`.              |
 
 ## Configuration
 
@@ -285,10 +285,10 @@ markup or data.
 | DEF-04 | Search term not URL-encoded, so `&` cuts it                | Site data: real product names     | TC-SEARCH-009 | TC-SEARCH-003 |
 | DEF-05 | Enter does not submit the search                           | Assumption: UX convention         | TC-SEARCH-011 | TC-SEARCH-001 |
 
-Each defect has a test that asserts the **correct** behaviour and calls `test.fail()` once its
-setup and preconditions have passed. While the defect exists the test fails as expected and the
-suite stays green; when it is fixed, the run turns red with "expected to fail, but passed". A
-broken setup is red too, instead of being taken for the defect.
+Each defect has a test that asserts its documented **symptom**. It is green while the symptom
+reproduces and red for anything else: a broken setup, a changed locator, a failed cleanup, or a
+fixed defect ("DEF-0x no longer reproduces"). Green means the defect still behaves as documented,
+not that the feature works.
 
 The rules, the rejected alternatives, what was verified, the remaining false-green risk and the
 procedure for a fix are in one place:
@@ -343,31 +343,30 @@ To set this up in a fork: **Settings → Pages → Source: GitHub Actions**.
 
 ## Debugging a failure
 
-| Situation                                   | What to do                                                                                                                                           |
-| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Failed locally                              | `npm run report` opens the HTML report with screenshot and video of the failure                                                                      |
-| Need a trace locally                        | `npx playwright test -g "TC-…" --trace on`, then open it from the report                                                                             |
-| Step through a test                         | `npm run test:debug` or `npm run test:ui`                                                                                                            |
-| Failed in CI                                | Download `playwright-report` from the run; retried tests include a trace                                                                             |
-| Many tests red in CI at once                | Check the "Site reachable" annotation first: the site may be down or not serving the app to the runner                                               |
-| A known-defect test is red with an error    | Its setup or a precondition failed (e.g. test data no longer matches the catalogue): fix that, not the defect                                        |
-| A known-defect test is red without an error | "Expected to fail, but passed" means the defect is probably fixed: follow [When a defect is fixed](docs/test-cases/README.md#when-a-defect-is-fixed) |
+| Situation                    | What to do                                                                                                                                                                                                                |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Failed locally               | `npm run report` opens the HTML report with screenshot and video of the failure                                                                                                                                           |
+| Need a trace locally         | `npx playwright test -g "TC-…" --trace on`, then open it from the report                                                                                                                                                  |
+| Step through a test          | `npm run test:debug` or `npm run test:ui`                                                                                                                                                                                 |
+| Failed in CI                 | Download `playwright-report` from the run; retried tests include a trace                                                                                                                                                  |
+| Many tests red in CI at once | Check the "Site reachable" annotation first: the site may be down or not serving the app to the runner                                                                                                                    |
+| A known-defect test is red   | Read its message: "no longer reproduces" means the defect is probably fixed, follow [When a defect is fixed](docs/test-cases/README.md#when-a-defect-is-fixed); anything else is a real failure (setup, locator, cleanup) |
 
 ## Technical decisions and trade-offs
 
-| Decision                                 | Reason                                                                              | Trade-off                                                                                                          |
-| ---------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Page objects provided as fixtures        | Specs declare what they need; construction and lifecycle live in one place          | One more layer to learn                                                                                            |
-| Cleanup in fixture teardown              | Runs after the test body whether it passed or failed; tests contain no cleanup code | Cannot run if the process is killed; less visible when reading one test                                            |
-| Locators: `data-qa` → role/label → id    | `data-qa` is a contract with developers and survives styling changes                | Ids for the icon-only search button and the unlabelled quantity input; CSS classes where the site has nothing else |
-| API as oracle for search                 | Tests keep working when the catalogue changes                                       | Trusts the API to apply the same rule as the UI                                                                    |
-| Data-driven tests, value in the title    | One failing data row is visible on its own                                          | 40 tests for 22 cases                                                                                              |
-| 2 workers by default                     | Shared public site; more load caused 503s                                           | Slower than the machine allows                                                                                     |
-| Chromium only                            | Fast and enough for functional coverage                                             | No Firefox or WebKit coverage                                                                                      |
-| `test.fail()` called after setup         | A broken setup is red instead of an "expected" failure                              | Failures after the marker, including teardown, are still accepted                                                  |
-| `search()` waits for the next navigation | No stale results, and a fix that changes the URL still reaches the assertion        | Assumes search navigates; an in-page (AJAX) search would need a new wait                                           |
-| TC-SEARCH-006 opens a sample of results  | Duration stays bounded as the catalogue grows                                       | A single broken link outside the sample can be missed                                                              |
-| Test data in an optional JSON file       | Environment data changes without code; no new dependency                            | Hand-written validation instead of a schema library                                                                |
+| Decision                                 | Reason                                                                                | Trade-off                                                                                                          |
+| ---------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Page objects provided as fixtures        | Specs declare what they need; construction and lifecycle live in one place            | One more layer to learn                                                                                            |
+| Cleanup in fixture teardown              | Runs after the test body whether it passed or failed; tests contain no cleanup code   | Cannot run if the process is killed; less visible when reading one test                                            |
+| Locators: `data-qa` → role/label → id    | `data-qa` is a contract with developers and survives styling changes                  | Ids for the icon-only search button and the unlabelled quantity input; CSS classes where the site has nothing else |
+| API as oracle for search                 | Tests keep working when the catalogue changes                                         | Trusts the API to apply the same rule as the UI                                                                    |
+| Data-driven tests, value in the title    | One failing data row is visible on its own                                            | 40 tests for 22 cases                                                                                              |
+| 2 workers by default                     | Shared public site; more load caused 503s                                             | Slower than the machine allows                                                                                     |
+| Chromium only                            | Fast and enough for functional coverage                                               | No Firefox or WebKit coverage                                                                                      |
+| Known defects assert their symptom       | Only the documented symptom is accepted; any other failure, including cleanup, is red | The symptom must be re-documented if the site changes it without fixing the defect                                 |
+| `search()` waits for the next navigation | No stale results, and a fix that changes the URL still reaches the assertion          | Assumes search navigates; an in-page (AJAX) search would need a new wait                                           |
+| TC-SEARCH-006 opens a sample of results  | Duration stays bounded as the catalogue grows                                         | A single broken link outside the sample can be missed                                                              |
+| Test data in an optional JSON file       | Environment data changes without code; no new dependency                              | Hand-written validation instead of a schema library                                                                |
 
 ## Lessons from building the suite
 
@@ -422,10 +421,10 @@ next run was green and the site was reachable.
 - **Not automated by design:** password policy (no requirement exists, OBS-01), visual layout,
   and login and account deletion as features of their own. See
   [Deliberately not automated](docs/test-cases/README.md#deliberately-not-automated).
-- **Known-defect tests can still fail for the wrong reason after `test.fail()` is called**, for
-  example if the site goes down mid-test or cleanup fails in teardown. The fix signal was
-  demonstrated for DEF-03, DEF-04 and DEF-05 only; DEF-01 and DEF-02 are server-side and could
-  not be simulated. See [the risk](docs/test-cases/README.md#the-risk-a-false-green).
+- **Known-defect tests are green while a defect exists.** That means the symptom still reproduces
+  as documented, not that the feature works. The "fixed" signal was not demonstrated against the
+  live site, because the defects cannot be fixed or simulated from the suite. See
+  [what this does not prove](docs/test-cases/README.md#what-this-does-not-prove).
 - **TC-SEARCH-006 checks a sample** of the results (default 5), not all of them.
 - **GitHub Pages shows only the latest `main` run.** Older reports are kept as artifacts for 14
   days.

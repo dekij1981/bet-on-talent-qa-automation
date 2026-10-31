@@ -337,8 +337,9 @@ create two accounts for the same person, which is the risk this test covers.
 
 ### Notes
 
-Automated as a known-defect test: `test.fail()` is called after the precondition user exists and
-the signup page has loaded, so a setup failure is reported as a real failure
+Automated as a known-defect test that asserts the symptom: the account form opens with the
+upper-case email and the "already exists" error is not shown. The precondition user and the signup
+page are ordinary steps, so a setup failure is red
 ([approach](README.md#how-known-defects-are-automated)). The cleanup fixture deletes both accounts.
 
 ---
