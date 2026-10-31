@@ -31,7 +31,7 @@ End-to-end tests for user registration and product search on
 
 ## Quick start
 
-Requirements: Node.js 20 or newer (CI uses the version in [.nvmrc](.nvmrc)).
+Requirements: Node.js 24 or newer, the version in [.nvmrc](.nvmrc) that CI also uses. The locked ESLint 10 needs Node 20.19+, 22.13+ or 24+, so one supported version is declared.
 
 ```bash
 git clone https://github.com/dekij1981/bet-on-talent-qa-automation.git

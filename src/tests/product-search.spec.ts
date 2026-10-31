@@ -24,17 +24,26 @@ function matchesSearch(item: ApiProduct, term: string): boolean {
   );
 }
 
-/** The UI results equal the search API's results, and every one follows the search rule. */
-async function expectResultsMatchApi(
+/**
+ * The UI and the search API each return exactly the products the search rule selects from the
+ * full catalogue. The expected set does not come from the search under test, so a product that
+ * both of them omit is caught. Order is not part of the contract, so identities are compared sorted.
+ */
+async function expectResultsMatchCatalogue(
   apiClient: ApiClient,
   productsPage: ProductsPage,
   term: string,
-): Promise<ApiProduct[]> {
-  const expected = await apiClient.searchProduct(term);
-  for (const item of expected) {
-    expect(matchesSearch(item, term), `"${item.name}" matches "${term}"`).toBe(true);
-  }
-  await expect(productsPage.resultNames).toHaveText(expected.map((item) => item.name));
+): Promise<string[]> {
+  const expected = (await apiClient.productsList())
+    .filter((item) => matchesSearch(item, term))
+    .map((item) => item.name)
+    .sort();
+  const fromApi = (await apiClient.searchProduct(term)).map((item) => item.name).sort();
+  expect(fromApi, `search API results for "${term}"`).toEqual(expected);
+
+  await expect(productsPage.resultCards).toHaveCount(expected.length);
+  const fromUi = [...(await productsPage.resultNameList())].sort();
+  expect(fromUi, `UI results for "${term}"`).toEqual(expected);
   return expected;
 }
 
@@ -64,7 +73,7 @@ test.describe('Product search', () => {
 
       await productsPage.search(product.searchTerm);
       await productsPage.expectSearchResults();
-      await expectResultsMatchApi(apiClient, productsPage, product.searchTerm);
+      await expectResultsMatchCatalogue(apiClient, productsPage, product.searchTerm);
       await productsPage.expectProductInResults(product.name, product.price);
 
       await productsPage.openProduct(product.name);
@@ -107,7 +116,7 @@ test.describe('Product search', () => {
         await productsPage.open();
         await productsPage.search(term);
 
-        const expected = await expectResultsMatchApi(apiClient, productsPage, term);
+        const expected = await expectResultsMatchCatalogue(apiClient, productsPage, term);
         expect(expected.length, `"${term}" returns several products`).toBeGreaterThan(1);
       },
     );
