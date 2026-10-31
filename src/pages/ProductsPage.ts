@@ -62,9 +62,33 @@ export class ProductsPage {
     return response;
   }
 
-  async pressEnterToSearch(term: string): Promise<void> {
+  /**
+   * Presses Enter in the search field and checks that no navigation follows. "Nothing happens"
+   * can only be observed over time, so the wait is bounded; any error other than that timeout
+   * (for example a failed fill) is rethrown and stays a real failure.
+   */
+  async pressEnterAndExpectNoSearch(
+    term: string,
+    message: string,
+    observeMs = 3_000,
+  ): Promise<void> {
+    const mainFrame = this.page.mainFrame();
     await this.searchInput.fill(term);
+    const navigation = this.page
+      .waitForEvent('framenavigated', {
+        predicate: (frame) => frame === mainFrame,
+        timeout: observeMs,
+      })
+      .then(
+        () => 'navigated' as const,
+        (error: Error) => {
+          if (error.name === 'TimeoutError') return 'stayed' as const;
+          throw error;
+        },
+      );
     await this.searchInput.press('Enter');
+    expect(await navigation, message).toBe('stayed');
+    await expect(this.searchedProductsHeading, message).toBeHidden();
   }
 
   card(name: string): Locator {

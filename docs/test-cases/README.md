@@ -61,20 +61,20 @@ Two further choices follow from these rules:
 
 - **Data-driven over copy-paste.** Variations of one scenario (8 required fields, 4 invalid
   emails) are one parameterised test, which makes them cheap to automate.
-- **Known defects are automated too.** The test asserts the _correct_ behaviour and is marked
-  `test.fail()`. The suite stays green today and reports when the defect is fixed. This keeps the
-  defect visible in the report instead of in a forgotten ticket. See
+- **Known defects are automated too.** The test asserts the defect's documented symptom. It is
+  green while the symptom reproduces and red for any other failure or when the defect is fixed.
+  This keeps the defect visible in the report instead of in a forgotten ticket. See
   [How Known Defects Are Automated](#how-known-defects-are-automated) for the full approach.
 
 Each test case states its reason in a **Why automated** or **Why manual** line.
 
 # Automation Status
 
-| Status                 | Meaning                                                                                                                                                          |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Yes**                | Automated and expected to pass.                                                                                                                                  |
-| **Yes — known defect** | Automated with `test.fail()` and a link to the defect. The suite reports when the defect is fixed, so the expectation gets updated instead of silently drifting. |
-| **Manual**             | Not automated. The reason is given in the test case.                                                                                                             |
+| Status                 | Meaning                                                                                                                                                     |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Yes**                | Automated and expected to pass.                                                                                                                             |
+| **Yes — known defect** | Automated as an assertion of the defect's symptom, with a link to the defect. The test turns red when the defect is fixed, so the expectation gets updated. |
+| **Manual**             | Not automated. The reason is given in the test case.                                                                                                        |
 
 # Tags
 
@@ -86,7 +86,7 @@ Every automated test has tags, so CI and developers can run exactly the subset t
 | `@regression`   | All other automated tests (P1 and P2).                 | Every pull request and nightly                            |
 | `@registration` | Registration feature.                                  | When working on that feature                              |
 | `@search`       | Product search and product details.                    | When working on that feature                              |
-| `@known-defect` | Tests that document an open defect with `test.fail()`. | With `@regression`; can be listed on their own for triage |
+| `@known-defect` | Tests that assert the symptom of an open defect.       | With `@regression`; can be listed on their own for triage |
 
 Each test has exactly one of `@smoke` or `@regression`, plus one feature tag. The full suite is
 `@smoke` + `@regression`.
@@ -103,8 +103,8 @@ npx playwright test --grep-invert @known-defect      # everything except known d
 # How Known Defects Are Automated
 
 Exploration found five defects ([DEF-01 to DEF-05](#defects)). Each one has an automated test
-that is marked with Playwright's `test.fail()`. This section explains why, how those tests are
-written, what the risks are, and what happens when a defect is fixed.
+that asserts the defect's **observed symptom**. This section explains why, how those tests are
+written, what they do and do not prove, and what happens when a defect is fixed.
 
 ## The problem
 
@@ -117,130 +117,87 @@ leaves three bad options:
   worse.
 - **Don't automate** it: the defect lives only in a ticket and is forgotten.
 
-`test.fail()` solves this: the suite stays green, the test still runs every time, and the suite
-reports the moment the behaviour changes.
+## What the tests assert
 
-## What `test.fail()` does
-
-According to the Playwright documentation:
-
-- It marks a test as "should fail". Playwright **runs the test and checks that it actually fails**.
-- Its purpose is documentation: to acknowledge that some functionality is broken until it is
-  fixed.
-- **If the test does not fail, Playwright reports it as a problem.** This is the signal that the
-  defect has been fixed.
-- It can be declared for the whole test (`test.fail(title, details, body)`) or called inside the
-  body (`test.fail()`), which marks the test from that point on. This suite uses the body form,
-  after setup ([rule 2](#rules-for-writing-a-known-defect-test)).
-
-What that means for each run:
-
-| Application behaviour                  | Test result      | Report                                   |
-| -------------------------------------- | ---------------- | ---------------------------------------- |
-| Defect still present (assertion fails) | Expected failure | Green, with the `issue` annotation       |
-| Defect fixed (assertion passes)        | Unexpected pass  | **Red** — "expected to fail, but passed" |
+Each known-defect test asserts the symptom exactly as documented in [Defects](#defects), for
+example "a search with leading spaces returns 0 results". The tests are **green while the symptom
+reproduces** and **red for anything else**: a broken setup, a changed locator, a cleanup error,
+or a defect that was fixed. Green therefore means "the defect still behaves as documented", not
+"the feature works". The report lists these tests as open defects, never as passing features.
 
 ## Options considered
 
-| Option                                               | What happens                                                                                              | Decision                                                                                                               |
-| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `test.fail()`                                        | Runs every time; green while the defect exists; red when it is fixed.                                     | **Chosen**                                                                                                             |
-| `test.skip()`                                        | Never runs. The docs describe it for tests that are irrelevant in a configuration, not for known defects. | Rejected: a fix or a change in the defect goes unnoticed                                                               |
-| `test.fixme()`                                       | Never runs. The docs describe it for tests that are slow or crash.                                        | Rejected: same as skip                                                                                                 |
-| Assert the buggy behaviour ("characterisation test") | Green today, e.g. asserts the cart shows × 1 after adding −2.                                             | Rejected: the code then claims the bug is _expected_; when the bug is fixed the test fails and looks like a regression |
-| Keep the test failing (red)                          | Suite is permanently red.                                                                                 | Rejected: hides real regressions                                                                                       |
-| Don't automate                                       | Defect only in this document.                                                                             | Rejected: no signal when it changes                                                                                    |
+| Option                                        | What happens                                                                                               | Decision                                                                                                                           |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Assert the observed symptom                   | Green while the symptom reproduces; red on any other failure and when the defect is fixed.                 | **Chosen**                                                                                                                         |
+| `test.fail()` with the correct behaviour      | Passes when the test fails, so any failure after the marker (locator, network, cleanup) counts as success. | Rejected: Playwright accepts every cause of failure as the expected one, and teardown errors are absorbed too (see the risk below) |
+| `test.skip()`                                 | Never runs. The docs describe it for tests that are irrelevant in a configuration.                         | Rejected: a fix or a change in the defect goes unnoticed                                                                           |
+| `test.fixme()`                                | Never runs.                                                                                                | Rejected: same as skip                                                                                                             |
+| Keep the correct-behaviour test failing (red) | Suite is permanently red.                                                                                  | Rejected: hides real regressions                                                                                                   |
+| Don't automate                                | Defect only in this document.                                                                              | Rejected: no signal when it changes                                                                                                |
+
+The suite previously used `test.fail()`. A code review pointed out that it cannot tell the
+documented symptom from a different cause, so it was replaced by the symptom assertions.
 
 ## Rules for writing a known-defect test
 
-1. **Assert the correct behaviour, not the bug.** The test reads like the requirement. For
-   TC-SEARCH-007 it expects the cart to still show × 3 after entering −2. When the defect is fixed,
-   the test already describes the right behaviour and only the `test.fail` marker is removed.
-2. **Activate the expectation only after setup.** Call `test.fail()` in the body once setup and
-   preconditions have passed. A failure before that line is an ordinary red failure. The
-   declaration form `test.fail(title, details, body)` would also accept a broken setup as the
-   expected failure, so it is not used.
+1. **Assert the documented symptom, with a message that says what to do when it is gone.** The
+   message reads like "DEF-03 no longer reproduces: replace this test with …".
+2. **Setup and preconditions come first and are ordinary assertions.** They fail loudly.
 3. **Link the defect** with an annotation, so the HTML report shows which defect the test tracks:
-   `annotation: { type: 'issue', description: 'DEF-02: …' }`.
+   `annotation: { type: 'issue', description: 'DEF-02: …' }`. The title carries "(DEF-0x symptom)".
 4. **Tag it** `@regression` and `@known-defect`, plus the feature tag. Known-defect tests are
    **never** in `@smoke`: the smoke suite must only contain tests that prove the core journeys work.
-5. **One defect per test, with as few steps as possible after the marker.** Every extra step is
-   another way for the test to fail for the wrong reason (see the next section).
+5. **One defect per test, with as few steps as possible.** Every extra step is another way to fail.
 6. **No step may depend on the defect.** A wait that only works while the bug exists breaks once
-   it is fixed, and the test then stays green forever. Example: waiting for the exact unencoded
-   search URL would time out after a fix of DEF-04, so the search helper waits for the next page
-   navigation instead. Likewise, TC-SEARCH-007 clicks "Add to cart" with `force`, so a fix that
-   disables the button counts as a rejection instead of stalling the click.
+   it is fixed with an unrelated timeout. Example: waiting for the exact unencoded search URL
+   would time out after a fix of DEF-04, so the search helper waits for the next page navigation
+   instead. Likewise, TC-SEARCH-007 clicks "Add to cart" with `force`.
+7. **"Nothing happens" is observed for a bounded time.** TC-SEARCH-011 waits 3 s for a navigation
+   and accepts only that timeout as the symptom; any other error is a real failure.
 
 Example ([product-search.spec.ts](../../src/tests/product-search.spec.ts)):
 
 ```ts
-test(
-  'TC-SEARCH-011 Pressing Enter submits the search',
-  {
-    tag: ['@regression', '@search', '@known-defect'],
-    annotation: { type: 'issue', description: 'DEF-05: Enter does not submit the search' },
-  },
-  async ({ productsPage }) => {
-    await productsPage.open();
-    await productsPage.expectToBeLoaded(); // setup: a failure here is red
+await productsPage.search(`  ${product.searchTerm}`);
 
-    test.fail(); // DEF-05 from here on
-    await productsPage.pressEnterToSearch(product.searchTerm);
-    await productsPage.expectSearchResults(); // correct behaviour; fails today
-  },
-);
+// DEF-03 symptom: the search finishes normally but returns 0 results.
+await productsPage.expectSearchResults();
+await expect(
+  productsPage.resultCards,
+  'DEF-03 no longer reproduces: replace this test with a check that results equal the baseline',
+).toHaveCount(0);
 ```
 
-## The risk: a false green
+## What this does not prove
 
-`test.fail()` is satisfied by **any** failure after it is called, not only by the defect. Three
-measures reduce that risk; none removes it completely.
+- A green known-defect test does not show the feature works. It shows the documented defect is
+  still there.
+- The symptom is what was observed on the live site. If the site changes the symptom without
+  fixing the defect (for example −2 now empties the cart), the test turns red and the symptom
+  must be re-documented.
+- Cleanup errors are not absorbed: a failed account deletion makes the test red, as in every
+  other test.
 
-1. **Setup before the marker** (rule 2). Broken setup or a failed precondition is red.
-2. **No defect-dependent steps** (rule 6), so a real fix produces the "expected to fail, but
-   passed" signal.
-3. **Guard tests.** Every step a known-defect test relies on is also covered by an ordinary test.
-   If shared code breaks, the guard turns red. A green guard makes a wrong-reason failure less
-   likely, but it does not prove why the known-defect test failed: when reviewing, also check in
-   the report that it failed on its defect assertion.
+**What was verified** (31 October 2026):
 
-| Known-defect test                                | Defect | Steps it relies on                                                  | Guarded by                                                                                         |
-| ------------------------------------------------ | ------ | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| [TC-REG-008](registration.md#tc-reg-008)         | DEF-01 | Create a user through the API; signup form; duplicate-email message | [TC-REG-002](registration.md#tc-reg-002)                                                           |
-| [TC-SEARCH-007](product-search.md#tc-search-007) | DEF-02 | Open product page; set quantity; Add to cart; read cart             | [TC-SEARCH-001](product-search.md#tc-search-001)                                                   |
-| [TC-SEARCH-008](product-search.md#tc-search-008) | DEF-03 | Search through the UI; read results                                 | [TC-SEARCH-001](product-search.md#tc-search-001), [TC-SEARCH-004](product-search.md#tc-search-004) |
-| [TC-SEARCH-009](product-search.md#tc-search-009) | DEF-04 | Search through the UI; compare result names                         | [TC-SEARCH-003](product-search.md#tc-search-003)                                                   |
-| [TC-SEARCH-011](product-search.md#tc-search-011) | DEF-05 | Type in the search field; read results heading                      | [TC-SEARCH-001](product-search.md#tc-search-001)                                                   |
+| Situation                                                  | Result                                                        |
+| ---------------------------------------------------------- | ------------------------------------------------------------- |
+| Defects present (live site)                                | All 7 known-defect tests pass                                 |
+| Fix of each defect simulated in the browser (DEF-01 to 05) | Every affected test is red with "DEF-0x no longer reproduces" |
 
-**What was verified** (29 October 2026):
-
-| Situation                                                               | Result                                                                          |
-| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Defects present                                                         | All 7 known-defect tests fail on their defect assertion (checked in the report) |
-| Broken setup (unknown product, no baseline results, no catalogue match) | TC-SEARCH-007, 008 and 009 are red, not "expected"                              |
-| Fixes of DEF-03, DEF-04 and DEF-05 simulated in the browser             | TC-SEARCH-008, 009 and 011 are red: "expected to fail, but passed"              |
-
-DEF-01 and DEF-02 are server-side and could not be simulated, so their fix signal is reasoned, not
-demonstrated.
-
-**Remaining limitations.** A failure that happens _after_ the marker for an unrelated reason (the
-site goes down mid-test, a locator in the asserted step breaks) is still accepted as expected.
-So is a failure in fixture teardown, such as a cleanup error, because it belongs to the same test
-result. The report's error message is the place to tell these apart.
+The fixes were simulated with temporary request routing and page scripts that were not committed:
+DEF-01 lower-cases the signup email, DEF-02 rejects add-to-cart requests with quantity ≤ 0,
+DEF-03 trims the search term, DEF-04 encodes it, and DEF-05 submits the search on Enter.
 
 ## When a defect is fixed
 
-1. The known-defect test reports **"expected to fail, but passed"** and the run turns red.
+1. The known-defect test turns red with "DEF-0x no longer reproduces".
 2. Confirm the fix by hand, using the steps to reproduce in [Defects](#defects).
-3. In the test, remove the `test.fail()` line, the `@known-defect` tag and the `issue`
-   annotation. No assertion needs to change, because the test already asserts the correct
-   behaviour (rule 1).
+3. Replace the symptom assertion with the correct-behaviour assertion, remove the `@known-defect`
+   tag and the `issue` annotation, and drop "(DEF-0x symptom)" from the title.
 4. In this folder, change the test case's status from "Yes — known defect" to "Yes", and mark the
    defect as fixed in the [Defects](#defects) table.
-
-If the defect changes but is still wrong (for example −2 now empties the cart instead of reducing
-it), the assertion still fails, the test stays green, and nothing needs to change.
 
 ## Running known-defect tests
 
@@ -255,8 +212,9 @@ report doubles as a live list of open defects.
 
 ## References
 
-- [Playwright documentation — `test.fail`](https://playwright.dev/docs/api/class-test#test-fail)
 - [Playwright documentation — Annotations](https://playwright.dev/docs/test-annotations)
+
+---
 
 # Test Data and Cleanup Strategy
 

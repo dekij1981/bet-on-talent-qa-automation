@@ -325,9 +325,9 @@ Verify that the quantity input does not accept values that make no sense for a p
 - A modal that is _not_ shown cannot be checked right after the click, because it appears only
   after an AJAX call. The test first waits for jQuery's request counter to reach zero, which
   happens only after the callback that would open the modal has run.
-- The confirmation check is soft, so for `-2` the report shows both symptoms.
-- The precondition (product × 3 in the cart) is verified in the cart before `test.fail()` is
-  called. "Add to cart" is clicked with `force`, so a fix that disables the button counts as a
+- The test asserts both symptoms: "Added!" is shown, and the cart quantity changed by the invalid
+  value (`-2` reduces it, `0` leaves it).
+- The precondition (product × 3 in the cart) is verified in the cart first. "Add to cart" is clicked with `force`, so a fix that disables the button counts as a
   rejection instead of stalling the click.
 
 ---

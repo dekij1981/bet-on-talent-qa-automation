@@ -12,8 +12,10 @@ import type { ProductsPage } from '../pages/ProductsPage';
 
 // Spec: docs/test-cases/product-search.md
 // Every test runs in a fresh browser context, so the cart always starts empty.
-// Known-defect tests call test.fail() only after their setup and preconditions passed, so a
-// broken setup is reported as a real failure, not as the expected one.
+// Known-defect tests assert the defect's observed symptom, not the correct behaviour. They are
+// green while the symptom is exactly as documented and red for anything else: a broken setup, a
+// changed locator, a failed cleanup, or a fixed defect. A fixed defect fails with a message that
+// says so; the test is then replaced by a check of the correct behaviour (see docs/test-cases).
 
 /** Search rule confirmed during exploration: case-insensitive substring of name or category. */
 function matchesSearch(item: ApiProduct, term: string): boolean {
@@ -24,17 +26,26 @@ function matchesSearch(item: ApiProduct, term: string): boolean {
   );
 }
 
-/** The UI results equal the search API's results, and every one follows the search rule. */
-async function expectResultsMatchApi(
+/**
+ * The UI and the search API each return exactly the products the search rule selects from the
+ * full catalogue. The expected set does not come from the search under test, so a product that
+ * both of them omit is caught. Order is not part of the contract, so identities are compared sorted.
+ */
+async function expectResultsMatchCatalogue(
   apiClient: ApiClient,
   productsPage: ProductsPage,
   term: string,
-): Promise<ApiProduct[]> {
-  const expected = await apiClient.searchProduct(term);
-  for (const item of expected) {
-    expect(matchesSearch(item, term), `"${item.name}" matches "${term}"`).toBe(true);
-  }
-  await expect(productsPage.resultNames).toHaveText(expected.map((item) => item.name));
+): Promise<string[]> {
+  const expected = (await apiClient.productsList())
+    .filter((item) => matchesSearch(item, term))
+    .map((item) => item.name)
+    .sort();
+  const fromApi = (await apiClient.searchProduct(term)).map((item) => item.name).sort();
+  expect(fromApi, `search API results for "${term}"`).toEqual(expected);
+
+  await expect(productsPage.resultCards).toHaveCount(expected.length);
+  const fromUi = [...(await productsPage.resultNameList())].sort();
+  expect(fromUi, `UI results for "${term}"`).toEqual(expected);
   return expected;
 }
 
@@ -64,7 +75,7 @@ test.describe('Product search', () => {
 
       await productsPage.search(product.searchTerm);
       await productsPage.expectSearchResults();
-      await expectResultsMatchApi(apiClient, productsPage, product.searchTerm);
+      await expectResultsMatchCatalogue(apiClient, productsPage, product.searchTerm);
       await productsPage.expectProductInResults(product.name, product.price);
 
       await productsPage.openProduct(product.name);
@@ -107,7 +118,7 @@ test.describe('Product search', () => {
         await productsPage.open();
         await productsPage.search(term);
 
-        const expected = await expectResultsMatchApi(apiClient, productsPage, term);
+        const expected = await expectResultsMatchCatalogue(apiClient, productsPage, term);
         expect(expected.length, `"${term}" returns several products`).toBeGreaterThan(1);
       },
     );
@@ -165,9 +176,13 @@ test.describe('Product search', () => {
     },
   );
 
-  for (const quantity of ['0', '-2']) {
+  // cartChange: what DEF-02 does to the cart quantity today.
+  for (const { quantity, cartChange } of [
+    { quantity: '0', cartChange: 0 },
+    { quantity: '-2', cartChange: -2 },
+  ]) {
     test(
-      `TC-SEARCH-007 Quantity rejects zero and negative values: ${quantity}`,
+      `TC-SEARCH-007 Quantity rejects zero and negative values (DEF-02 symptom): ${quantity}`,
       {
         tag: ['@regression', '@search', '@known-defect'],
         annotation: {
@@ -187,23 +202,28 @@ test.describe('Product search', () => {
 
         await productDetailsPage.open(productId);
         await productDetailsPage.setQuantity(quantity);
-
-        test.fail(); // DEF-02 from here on
         await productDetailsPage.attemptAddToCart();
         await productDetailsPage.waitForCartRequests();
 
-        // Correct behaviour. Today "Added!" is shown for both values and -2 reduces the cart.
-        await expect
-          .soft(productDetailsPage.addedHeading, 'invalid quantity is not confirmed')
-          .toBeHidden();
+        // DEF-02 symptom: the invalid quantity is confirmed with "Added!".
+        await expect(
+          productDetailsPage.addedHeading,
+          `DEF-02 no longer reproduces for quantity ${quantity}: replace this test with a check that the quantity is rejected`,
+        ).toBeVisible();
+        // DEF-02 symptom: the cart quantity changed by the invalid value (0 leaves it as is).
+        const symptomQuantity = product.quantity + cartChange;
         await cartPage.open();
-        await cartPage.expectLine(product.name, product.quantity, total);
+        await cartPage.expectLine(
+          product.name,
+          symptomQuantity,
+          formatPrice(parsePrice(product.price) * symptomQuantity),
+        );
       },
     );
   }
 
   test(
-    'TC-SEARCH-008 Leading spaces are ignored',
+    'TC-SEARCH-008 Leading spaces are ignored (DEF-03 symptom)',
     {
       tag: ['@regression', '@search', '@known-defect'],
       annotation: { type: 'issue', description: 'DEF-03: leading spaces return no results' },
@@ -214,17 +234,20 @@ test.describe('Product search', () => {
       const baseline = await productsPage.resultNameList();
       expect(baseline.length, 'baseline search returns results').toBeGreaterThan(0);
 
-      test.fail(); // DEF-03 from here on
       await productsPage.search(`  ${product.searchTerm}`);
 
-      // Correct behaviour. Today the search returns 0 results.
-      await expect(productsPage.resultNames).toHaveText(baseline);
+      // DEF-03 symptom: the search finishes normally but returns 0 results.
+      await productsPage.expectSearchResults();
+      await expect(
+        productsPage.resultCards,
+        'DEF-03 no longer reproduces: replace this test with a check that results equal the baseline',
+      ).toHaveCount(0);
     },
   );
 
   for (const term of searchData.ampersandTerms) {
     test(
-      `TC-SEARCH-009 Search terms containing &: "${term}"`,
+      `TC-SEARCH-009 Search terms containing & (DEF-04 symptom): "${term}"`,
       {
         tag: ['@regression', '@search', '@known-defect'],
         annotation: {
@@ -240,11 +263,17 @@ test.describe('Product search', () => {
         expect(expected, `catalogue has exactly one match for "${term}"`).toHaveLength(1);
         await productsPage.open();
 
-        test.fail(); // DEF-04 from here on
         await productsPage.search(term);
 
-        // Correct behaviour. Today unrelated products are returned.
-        await expect(productsPage.resultNames).toHaveText(expected);
+        // DEF-04 symptom: the term is cut at "&", so products that do not match it are returned.
+        await productsPage.expectSearchResults();
+        const unrelated = (await productsPage.resultNameList()).filter(
+          (name) => !expected.includes(name),
+        );
+        expect(
+          unrelated,
+          `DEF-04 no longer reproduces for "${term}": replace this test with a check that only ${expected[0]} is returned`,
+        ).not.toEqual([]);
       },
     );
   }
@@ -272,7 +301,7 @@ test.describe('Product search', () => {
   }
 
   test(
-    'TC-SEARCH-011 Pressing Enter submits the search',
+    'TC-SEARCH-011 Pressing Enter submits the search (DEF-05 symptom)',
     {
       tag: ['@regression', '@search', '@known-defect'],
       annotation: { type: 'issue', description: 'DEF-05: Enter does not submit the search' },
@@ -281,11 +310,11 @@ test.describe('Product search', () => {
       await productsPage.open();
       await productsPage.expectToBeLoaded();
 
-      test.fail(); // DEF-05 from here on
-      await productsPage.pressEnterToSearch(product.searchTerm);
-
-      // Correct behaviour. Today nothing happens.
-      await productsPage.expectSearchResults();
+      // DEF-05 symptom: nothing happens. If Enter starts a search, this fails as "fixed".
+      await productsPage.pressEnterAndExpectNoSearch(
+        product.searchTerm,
+        'DEF-05 no longer reproduces: replace this test with a check that Enter shows the results',
+      );
     },
   );
 });

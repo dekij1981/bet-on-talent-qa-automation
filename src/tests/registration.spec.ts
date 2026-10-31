@@ -157,7 +157,7 @@ test.describe('User registration', () => {
   }
 
   test(
-    'TC-REG-008 Registered email in different letter case',
+    'TC-REG-008 Registered email in different letter case (DEF-01 symptom)',
     {
       tag: ['@regression', '@registration', '@known-defect'],
       annotation: {
@@ -165,7 +165,7 @@ test.describe('User registration', () => {
         description: 'DEF-01: duplicate-email check is case-sensitive',
       },
     },
-    async ({ userFactory, signupLoginPage }) => {
+    async ({ userFactory, signupLoginPage, accountInfoPage }) => {
       const existing = await userFactory.createViaApi();
       const upperCaseEmail = existing.email.toUpperCase();
       // If the defect lets the signup through, the duplicate account must be cleaned up too.
@@ -173,11 +173,14 @@ test.describe('User registration', () => {
       await signupLoginPage.open();
       await signupLoginPage.expectToBeLoaded();
 
-      test.fail(); // DEF-01 from here on (setup above must pass)
       await signupLoginPage.startSignup(existing.name, upperCaseEmail);
 
-      // Correct behaviour. Today the account form opens instead, so this fails as expected.
-      await signupLoginPage.expectExistingEmailError();
+      // DEF-01 symptom: the account form opens instead of the "already exists" error.
+      const fixedMessage =
+        'DEF-01 no longer reproduces: replace this test with a check that the error is shown';
+      await expect(accountInfoPage.nameInput, fixedMessage).toBeVisible();
+      await expect(signupLoginPage.existingEmailError, fixedMessage).toBeHidden();
+      await accountInfoPage.expectPrefilled(existing.name, upperCaseEmail);
     },
   );
 
