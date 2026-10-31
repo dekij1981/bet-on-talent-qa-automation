@@ -311,7 +311,10 @@ test.describe('Product search', () => {
       await productsPage.expectToBeLoaded();
 
       // DEF-05 symptom: nothing happens. If Enter starts a search, this fails as "fixed".
-      await productsPage.pressEnterAndExpectNoSearch(product.searchTerm);
+      await productsPage.pressEnterAndExpectNoSearch(
+        product.searchTerm,
+        'DEF-05 no longer reproduces: replace this test with a check that Enter shows the results',
+      );
     },
   );
 });

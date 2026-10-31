@@ -67,7 +67,11 @@ export class ProductsPage {
    * can only be observed over time, so the wait is bounded; any error other than that timeout
    * (for example a failed fill) is rethrown and stays a real failure.
    */
-  async pressEnterAndExpectNoSearch(term: string, observeMs = 3_000): Promise<void> {
+  async pressEnterAndExpectNoSearch(
+    term: string,
+    message: string,
+    observeMs = 3_000,
+  ): Promise<void> {
     const mainFrame = this.page.mainFrame();
     await this.searchInput.fill(term);
     const navigation = this.page
@@ -83,8 +87,8 @@ export class ProductsPage {
         },
       );
     await this.searchInput.press('Enter');
-    expect(await navigation, 'Enter did not start a search').toBe('stayed');
-    await expect(this.searchedProductsHeading).toBeHidden();
+    expect(await navigation, message).toBe('stayed');
+    await expect(this.searchedProductsHeading, message).toBeHidden();
   }
 
   card(name: string): Locator {

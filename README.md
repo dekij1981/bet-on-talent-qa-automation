@@ -31,7 +31,7 @@ End-to-end tests for user registration and product search on
 
 ## Quick start
 
-Requirements: Node.js 24 or newer, the version in [.nvmrc](.nvmrc) that CI also uses. The locked ESLint 10 needs Node 20.19+, 22.13+ or 24+, so one supported version is declared.
+Requirements: Node.js 24 or newer, the version in [.nvmrc](.nvmrc) that CI also uses. The locked ESLint 10 needs Node 20.19+, 22.13+ or 24+, so one supported version is declared. [.npmrc](.npmrc) sets `engine-strict`, so `npm ci` stops on an older Node.
 
 ```bash
 git clone https://github.com/dekij1981/bet-on-talent-qa-automation.git
@@ -354,19 +354,19 @@ To set this up in a fork: **Settings → Pages → Source: GitHub Actions**.
 
 ## Technical decisions and trade-offs
 
-| Decision                                 | Reason                                                                                | Trade-off                                                                                                          |
-| ---------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Page objects provided as fixtures        | Specs declare what they need; construction and lifecycle live in one place            | One more layer to learn                                                                                            |
-| Cleanup in fixture teardown              | Runs after the test body whether it passed or failed; tests contain no cleanup code   | Cannot run if the process is killed; less visible when reading one test                                            |
-| Locators: `data-qa` → role/label → id    | `data-qa` is a contract with developers and survives styling changes                  | Ids for the icon-only search button and the unlabelled quantity input; CSS classes where the site has nothing else |
-| API as oracle for search                 | Tests keep working when the catalogue changes                                         | Trusts the API to apply the same rule as the UI                                                                    |
-| Data-driven tests, value in the title    | One failing data row is visible on its own                                            | 40 tests for 22 cases                                                                                              |
-| 2 workers by default                     | Shared public site; more load caused 503s                                             | Slower than the machine allows                                                                                     |
-| Chromium only                            | Fast and enough for functional coverage                                               | No Firefox or WebKit coverage                                                                                      |
-| Known defects assert their symptom       | Only the documented symptom is accepted; any other failure, including cleanup, is red | The symptom must be re-documented if the site changes it without fixing the defect                                 |
-| `search()` waits for the next navigation | No stale results, and a fix that changes the URL still reaches the assertion          | Assumes search navigates; an in-page (AJAX) search would need a new wait                                           |
-| TC-SEARCH-006 opens a sample of results  | Duration stays bounded as the catalogue grows                                         | A single broken link outside the sample can be missed                                                              |
-| Test data in an optional JSON file       | Environment data changes without code; no new dependency                              | Hand-written validation instead of a schema library                                                                |
+| Decision                                 | Reason                                                                                                                                         | Trade-off                                                                                                          |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Page objects provided as fixtures        | Specs declare what they need; construction and lifecycle live in one place                                                                     | One more layer to learn                                                                                            |
+| Cleanup in fixture teardown              | Runs after the test body whether it passed or failed; tests contain no cleanup code                                                            | Cannot run if the process is killed; less visible when reading one test                                            |
+| Locators: `data-qa` → role/label → id    | `data-qa` is a contract with developers and survives styling changes                                                                           | Ids for the icon-only search button and the unlabelled quantity input; CSS classes where the site has nothing else |
+| Full catalogue as oracle for search      | Expected results come from the catalogue and the confirmed rule, not from the search under test; a product that both UI and API omit is caught | Trusts the rule (name or category, case-insensitive) and that `productsList` is complete                           |
+| Data-driven tests, value in the title    | One failing data row is visible on its own                                                                                                     | 40 tests for 22 cases                                                                                              |
+| 2 workers by default                     | Shared public site; more load caused 503s                                                                                                      | Slower than the machine allows                                                                                     |
+| Chromium only                            | Fast and enough for functional coverage                                                                                                        | No Firefox or WebKit coverage                                                                                      |
+| Known defects assert their symptom       | Only the documented symptom is accepted; any other failure, including cleanup, is red                                                          | The symptom must be re-documented if the site changes it without fixing the defect                                 |
+| `search()` waits for the next navigation | No stale results, and a fix that changes the URL still reaches the assertion                                                                   | Assumes search navigates; an in-page (AJAX) search would need a new wait                                           |
+| TC-SEARCH-006 opens a sample of results  | Duration stays bounded as the catalogue grows                                                                                                  | A single broken link outside the sample can be missed                                                              |
+| Test data in an optional JSON file       | Environment data changes without code; no new dependency                                                                                       | Hand-written validation instead of a schema library                                                                |
 
 ## Lessons from building the suite
 
@@ -422,8 +422,8 @@ next run was green and the site was reachable.
   and login and account deletion as features of their own. See
   [Deliberately not automated](docs/test-cases/README.md#deliberately-not-automated).
 - **Known-defect tests are green while a defect exists.** That means the symptom still reproduces
-  as documented, not that the feature works. The "fixed" signal was not demonstrated against the
-  live site, because the defects cannot be fixed or simulated from the suite. See
+  as documented, not that the feature works. The "fixed" signal was demonstrated by simulating
+  each fix in the browser, not on a fixed site. See
   [what this does not prove](docs/test-cases/README.md#what-this-does-not-prove).
 - **TC-SEARCH-006 checks a sample** of the results (default 5), not all of them.
 - **GitHub Pages shows only the latest `main` run.** Older reports are kept as artifacts for 14

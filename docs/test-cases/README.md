@@ -179,9 +179,16 @@ await expect(
 - Cleanup errors are not absorbed: a failed account deletion makes the test red, as in every
   other test.
 
-**What was verified** (31 October 2026): all 7 known-defect tests passed against the live site.
-The "fixed" signal was not demonstrated in this round, because the defects cannot be fixed or
-simulated from the suite; it follows from the assertions (a missing symptom fails them).
+**What was verified** (31 October 2026):
+
+| Situation                                                  | Result                                                        |
+| ---------------------------------------------------------- | ------------------------------------------------------------- |
+| Defects present (live site)                                | All 7 known-defect tests pass                                 |
+| Fix of each defect simulated in the browser (DEF-01 to 05) | Every affected test is red with "DEF-0x no longer reproduces" |
+
+The fixes were simulated with temporary request routing and page scripts that were not committed:
+DEF-01 lower-cases the signup email, DEF-02 rejects add-to-cart requests with quantity ≤ 0,
+DEF-03 trims the search term, DEF-04 encodes it, and DEF-05 submits the search on Enter.
 
 ## When a defect is fixed
 

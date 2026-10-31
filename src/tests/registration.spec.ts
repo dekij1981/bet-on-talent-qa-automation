@@ -176,11 +176,11 @@ test.describe('User registration', () => {
       await signupLoginPage.startSignup(existing.name, upperCaseEmail);
 
       // DEF-01 symptom: the account form opens instead of the "already exists" error.
+      const fixedMessage =
+        'DEF-01 no longer reproduces: replace this test with a check that the error is shown';
+      await expect(accountInfoPage.nameInput, fixedMessage).toBeVisible();
+      await expect(signupLoginPage.existingEmailError, fixedMessage).toBeHidden();
       await accountInfoPage.expectPrefilled(existing.name, upperCaseEmail);
-      await expect(
-        signupLoginPage.existingEmailError,
-        'DEF-01 no longer reproduces: replace this test with a check that the error is shown',
-      ).toBeHidden();
     },
   );
 
