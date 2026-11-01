@@ -236,7 +236,8 @@ Verify what happens when the user clicks search without typing anything.
 ### Expected Result
 
 - The heading **All Products** is visible.
-- The number of product cards equals the number of products returned by `GET /api/productsList`.
+- The product cards show exactly the products returned by `GET /api/productsList`: same count
+  and same names, independent of order.
 
 ---
 
@@ -424,11 +425,15 @@ product contains `#`, so there is no real-data case (see [DEF-04](README.md#defe
 Priority: P2  
 Automation: Yes  
 Tags: `@regression` `@search`  
-Why automated: Security regression risk; deterministic check
+Why automated: Regression examples for input handling; deterministic check
 
 ### Objective
 
-Verify that input that looks like code is treated as plain text.
+Verify that three specific inputs that look like code are treated as plain text by the search.
+
+This is a set of **regression examples**, not a security test. It shows these inputs do not
+trigger a dialog or a server error; it does not show that the application is free of XSS or SQL
+injection.
 
 ### Test Data
 

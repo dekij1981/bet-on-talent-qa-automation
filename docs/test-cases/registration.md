@@ -87,8 +87,10 @@ automatically, and that the entered data is stored correctly. This is the main o
   - the header shows **Logged in as \<name\>**
   - the **Logout** and **Delete Account** links are visible
   - the **Signup / Login** link is not visible
-- `GET /api/getUserDetailByEmail` returns the same first name, last name, address, country, state,
-  city and zipcode that were entered.
+- `GET /api/getUserDetailByEmail` returns the same name, email, title, date of birth, first name,
+  last name, company, address, address 2, country, state, city and zipcode that were entered.
+- The mobile number and the newsletter and special-offers choices are not checked: the API does
+  not return them. "All fields" means all fields were filled in, not that each one was verified.
 
 ---
 
@@ -411,11 +413,12 @@ displayed without being corrupted.
 Priority: P2  
 Automation: Yes  
 Tags: `@regression` `@registration`  
-Why automated: Security regression risk; deterministic check
+Why automated: Regression example for stored input; deterministic check
 
 ### Objective
 
-Verify that HTML entered as a name is not executed. The name is shown in the header on every page,
+Verify that one specific HTML payload entered as a name is not executed. This is a **regression
+example**, not a security test: it does not show that the application is free of XSS. The name is shown in the header on every page,
 which makes it a likely place for stored XSS.
 
 ### Test Data
