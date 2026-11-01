@@ -37,10 +37,19 @@ test.describe('User registration', () => {
 
       const { responseCode, user: stored } = await apiClient.getUserDetailByEmail(user.email);
       expect(responseCode).toBe(200);
+      // Every field the API returns; the mobile number and the opt-in checkboxes are not returned.
       expect(stored).toMatchObject({
+        name: user.name,
+        email: user.email,
+        title: user.title,
+        birth_day: user.birthDay,
+        birth_month: user.birthMonth,
+        birth_year: user.birthYear,
         first_name: user.firstName,
         last_name: user.lastName,
+        company: user.company,
         address1: user.address,
+        address2: user.address2,
         country: user.country,
         state: user.state,
         city: user.city,

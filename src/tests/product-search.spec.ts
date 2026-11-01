@@ -151,7 +151,10 @@ test.describe('Product search', () => {
       await productsPage.search('');
 
       await expect(productsPage.allProductsHeading).toBeVisible();
+      // Same identities, not only the same count: a duplicate plus an omission would match a count.
       await expect(productsPage.resultCards).toHaveCount(catalogue.length);
+      const shown = [...(await productsPage.resultNameList())].sort();
+      expect(shown).toEqual(catalogue.map((item) => item.name).sort());
     },
   );
 

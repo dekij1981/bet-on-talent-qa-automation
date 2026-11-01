@@ -131,7 +131,8 @@ TEST_DATA_FILE=test-data.example.json npm test
 - **Derived, not configured:** the case variants (TC-SEARCH-004) and the leading-space variant
   (TC-SEARCH-008) are built from the configured search term.
 - **Generated, not configured:** account name and email are unique per test.
-- **Kept in the tests on purpose:** invalid emails, script and SQL-like payloads, the Unicode
+- **Kept in the tests on purpose:** invalid emails, script and SQL-like payloads (regression
+  examples, not a security guarantee), the Unicode
   name, and the non-existing search term. They are the scenario, not environment data.
 - **Catalogue requirements** are checked by the tests themselves: a partial term must return more
   than one product, and each `&` term must appear in exactly one product name or category.
